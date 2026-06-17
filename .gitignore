@@ -48,5 +48,3 @@ pnpm-debug.log*
 # drizzle
 packages/db/migrations/meta/_journal.json.bak
 
-# GitHub Actions (PAT sem scope workflow — adicionar manualmente depois)
-.github/workflows/
