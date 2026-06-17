@@ -1,0 +1,48 @@
+services:
+  - type: web
+    name: nr1check-api
+    runtime: node
+    plan: starter
+    rootDir: apps/api
+    buildCommand: pnpm install --filter @nr1check/api... --frozen-lockfile && pnpm --filter @nr1check/api build
+    startCommand: pnpm --filter @nr1check/api start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: CLERK_PUBLISHABLE_KEY
+        sync: false
+      - key: CLERK_WEBHOOK_SECRET
+        sync: false
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET
+        value: nr1check-documents
+      - key: R2_PUBLIC_URL
+        sync: false
+      - key: R2_ENDPOINT
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: ZAPI_INSTANCE_ID
+        sync: false
+      - key: ZAPI_TOKEN
+        sync: false
+      - key: ZAPI_CLIENT_TOKEN
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-4o-mini
+      - key: APP_BASE_URL
+        value: https://nr1check.com.br
