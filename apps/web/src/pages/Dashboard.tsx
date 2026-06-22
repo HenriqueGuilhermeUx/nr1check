@@ -49,7 +49,7 @@ export default function Dashboard() {
           <UserButton afterSignOutUrl="/" />
           <div className="text-sm">
             <p className="font-medium">{user?.firstName}</p>
-            <p className="text-gray-500 text-xs truncate">{user?.email}</p>
+            <p className="text-gray-500 text-xs truncate">{user?.primaryEmailAddress?.emailAddress}</p>
           </div>
         </div>
       </aside>
