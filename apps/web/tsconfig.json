@@ -2,12 +2,18 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "rootDir": "./src",
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "jsx": "react-jsx",
     "types": ["vite/client"],
-    "noEmit": true
+    "noEmit": true,
+    "paths": {
+      "@nr1check/api/routers": ["../api/src/routers/index.ts"],
+      "@nr1check/api/routers/*": ["../api/src/routers/*"],
+      "@nr1check/db": ["../../packages/db/src/index.ts"],
+      "@nr1check/db/schema": ["../../packages/db/src/schema.ts"],
+      "@nr1check/shared": ["../../packages/shared/src/index.ts"]
+    }
   },
   "include": ["src/**/*", "netlify.toml"]
 }
