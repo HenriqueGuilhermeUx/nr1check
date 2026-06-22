@@ -97,7 +97,7 @@ export const courseRouter = router({
         return inserted;
       }
 
-      const completed = Array.from(new Set([...existing.completedModules, input.moduleId]));
+      const completed = Array.from(new Set([...(existing.completedModules ?? []), input.moduleId]));
       const quizScores = input.quizScore !== undefined
         ? { ...existing.quizScores, [input.moduleId]: input.quizScore }
         : existing.quizScores;
