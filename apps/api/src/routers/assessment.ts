@@ -140,7 +140,8 @@ export const assessmentRouter = router({
       for (const [k, v] of Object.entries(input.answers)) answersNum[Number(k)] = v;
 
       const scores = calcScores(answersNum, questions);
-      const avg = Object.values(scores).reduce((a, b) => a + b, 0) / Object.values(scores).length;
+      const valuesArr = Object.values(scores) as number[];
+      const avg = valuesArr.length > 0 ? valuesArr.reduce((a, b) => a + b, 0) / valuesArr.length : 0;
       const riskLevel = calcRiskLevel(avg);
 
       await db.insert(assessmentResponses).values({
