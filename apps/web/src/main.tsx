@@ -30,7 +30,15 @@ const trpcClient = trpc.createClient({
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
+    <ClerkProvider
+      publishableKey={PUBLISHABLE_KEY}
+      afterSignInUrl="/comecar"
+      afterSignUpUrl="/comecar"
+      signInUrl="/login"
+      signUpUrl="/cadastro"
+      signInFallbackRedirectUrl="/comecar"
+      signUpFallbackRedirectUrl="/comecar"
+    >
       <QueryClientProvider client={queryClient}>
         <trpc.Provider client={trpcClient} queryClient={queryClient}>
           <App />
