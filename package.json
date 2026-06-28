@@ -2,7 +2,7 @@
   "name": "nr1check",
   "version": "1.0.0",
   "private": true,
-  "description": "NR1Check — Plataforma de compliance psicossocial NR-1 para PMEs brasileiras",
+  "description": "NR1Check Essencial — GRO, PGR, riscos ocupacionais e avaliação psicossocial para PMEs brasileiras",
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
@@ -20,6 +20,6 @@
   },
   "packageManager": "pnpm@9.12.0",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.0.0"
   }
 }
