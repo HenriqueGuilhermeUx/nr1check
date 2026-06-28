@@ -9,15 +9,16 @@ import Pricing from "./pages/Pricing";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import Onboarding from "./pages/Onboarding";
 import Dashboard from "./pages/Dashboard";
+import NR1Obligations from "./pages/NR1Obligations";
+import PsychosocialAssessment from "./pages/PsychosocialAssessment";
+import PublicPsychosocialResponse from "./pages/PublicPsychosocialResponse";
+import RiskInventory from "./pages/RiskInventory";
 import Employees from "./pages/Employees";
 import Documents from "./pages/Documents";
 import Complaints from "./pages/Complaints";
 import DefensePanel from "./pages/DefensePanel";
 import EmployeeLogin from "./pages/EmployeeLogin";
 import EmployeePortal from "./pages/EmployeePortal";
-import RiskInventory from "./pages/RiskInventory";
-import PsychosocialAssessment from "./pages/PsychosocialAssessment";
-import PublicPsychosocialResponse from "./pages/PublicPsychosocialResponse";
 import NotFound from "./pages/NotFound";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -46,7 +47,7 @@ export function App() {
         <Route path="/pagamento/sucesso" element={<PaymentSuccess />} />
         <Route path="/acesso-funcionario" element={<EmployeeLogin />} />
 
-        {/* Rota pública para resposta sem WhatsApp/Z-API */}
+        {/* Resposta pública por link direto, sem depender de WhatsApp ou sessão do funcionário */}
         <Route path="/responder-avaliacao" element={<PublicPsychosocialResponse />} />
 
         {/* App protegida do gestor */}
@@ -69,10 +70,10 @@ export function App() {
         />
 
         <Route
-          path="/funcionarios"
+          path="/obrigacoes-nr1"
           element={
             <ProtectedRoute>
-              <Employees />
+              <NR1Obligations />
             </ProtectedRoute>
           }
         />
@@ -91,6 +92,15 @@ export function App() {
           element={
             <ProtectedRoute>
               <RiskInventory />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/funcionarios"
+          element={
+            <ProtectedRoute>
+              <Employees />
             </ProtectedRoute>
           }
         />
@@ -122,7 +132,7 @@ export function App() {
           }
         />
 
-        {/* Portal do funcionário com login interno */}
+        {/* Portal do funcionário */}
         <Route path="/portal/*" element={<EmployeePortal />} />
 
         <Route path="*" element={<NotFound />} />
