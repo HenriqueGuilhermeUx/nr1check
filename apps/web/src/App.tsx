@@ -13,9 +13,10 @@ import Employees from "./pages/Employees";
 import Documents from "./pages/Documents";
 import Complaints from "./pages/Complaints";
 import DefensePanel from "./pages/DefensePanel";
-import RiskInventory from "./pages/RiskInventory";
 import EmployeeLogin from "./pages/EmployeeLogin";
 import EmployeePortal from "./pages/EmployeePortal";
+import RiskInventory from "./pages/RiskInventory";
+import PsychosocialAssessment from "./pages/PsychosocialAssessment";
 import NotFound from "./pages/NotFound";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -72,6 +73,15 @@ export function App() {
         />
 
         <Route
+          path="/avaliacao-psicossocial"
+          element={
+            <ProtectedRoute>
+              <PsychosocialAssessment />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
           path="/inventario-riscos"
           element={
             <ProtectedRoute>
@@ -107,6 +117,7 @@ export function App() {
           }
         />
 
+        {/* Portal do funcionário */}
         <Route path="/portal/*" element={<EmployeePortal />} />
 
         <Route path="*" element={<NotFound />} />
