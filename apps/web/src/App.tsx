@@ -13,6 +13,7 @@ import NR1Obligations from "./pages/NR1Obligations";
 import PsychosocialAssessment from "./pages/PsychosocialAssessment";
 import PublicPsychosocialResponse from "./pages/PublicPsychosocialResponse";
 import RiskInventory from "./pages/RiskInventory";
+import DocumentsSignatures from "./pages/DocumentsSignatures";
 import Employees from "./pages/Employees";
 import Documents from "./pages/Documents";
 import Complaints from "./pages/Complaints";
@@ -92,6 +93,15 @@ export function App() {
           element={
             <ProtectedRoute>
               <RiskInventory />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/documentos-assinaturas"
+          element={
+            <ProtectedRoute>
+              <DocumentsSignatures />
             </ProtectedRoute>
           }
         />
