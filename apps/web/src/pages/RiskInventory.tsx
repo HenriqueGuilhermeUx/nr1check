@@ -18,19 +18,34 @@ import {
 import toast from "react-hot-toast";
 import { trpc } from "../lib/trpc";
 
-type RiskCategory = "fisico" | "quimico" | "biologico" | "ergonomico" | "acidente" | "psicossocial";
+type PsychosocialFactor =
+  | "sobrecarga"
+  | "metas_excessivas"
+  | "assedio_moral"
+  | "assedio_sexual"
+  | "conflitos"
+  | "lideranca"
+  | "baixa_autonomia"
+  | "falta_clareza"
+  | "jornada"
+  | "violencia_clientes"
+  | "inseguranca"
+  | "comunicacao"
+  | "outros";
+
 type ActionStatus = "pendente" | "em_andamento" | "concluido";
 type RiskLevel = "baixo" | "medio" | "alto" | "critico";
 
-type RiskItem = {
+type PsychosocialRisk = {
   id: string;
   department: string;
   role: string;
-  category: RiskCategory;
+  factor: PsychosocialFactor;
   description: string;
-  hazardSource: string;
+  source: string;
   consequences: string;
   exposedWorkers: string;
+  evidence: string;
   probability: number;
   severity: number;
   existingMeasures: string;
@@ -42,24 +57,31 @@ type RiskItem = {
   createdAt: string;
 };
 
-type RiskForm = Omit<RiskItem, "id" | "createdAt">;
+type RiskForm = Omit<PsychosocialRisk, "id" | "createdAt">;
 
 const NAV = [
   { to: "/dashboard", label: "Visão geral", icon: Activity },
   { to: "/funcionarios", label: "Funcionários", icon: Users },
-  { to: "/inventario-riscos", label: "Inventário + Plano", icon: ClipboardList },
-  { to: "/documentos", label: "Documentos", icon: FileText },
+  { to: "/inventario-riscos", label: "Riscos psicossociais", icon: ClipboardList },
   { to: "/denuncias", label: "Relatos", icon: MessageSquare },
-  { to: "/painel-defesa", label: "Painel de Defesa", icon: Shield },
+  { to: "/documentos", label: "Evidências / PGR", icon: FileText },
+  { to: "/painel-defesa", label: "Painel de gestão", icon: Shield },
 ];
 
-const CATEGORY_LABEL: Record<RiskCategory, string> = {
-  fisico: "Físico",
-  quimico: "Químico",
-  biologico: "Biológico",
-  ergonomico: "Ergonômico",
-  acidente: "Acidente",
-  psicossocial: "Psicossocial",
+const FACTOR_LABEL: Record<PsychosocialFactor, string> = {
+  sobrecarga: "Sobrecarga de trabalho",
+  metas_excessivas: "Metas excessivas / cobrança intensa",
+  assedio_moral: "Assédio moral",
+  assedio_sexual: "Assédio sexual",
+  conflitos: "Conflitos interpessoais",
+  lideranca: "Falhas de liderança / suporte insuficiente",
+  baixa_autonomia: "Baixa autonomia",
+  falta_clareza: "Falta de clareza de função",
+  jornada: "Jornada excessiva / pausas insuficientes",
+  violencia_clientes: "Violência externa / clientes / público",
+  inseguranca: "Insegurança no trabalho",
+  comunicacao: "Comunicação deficiente",
+  outros: "Outros fatores psicossociais",
 };
 
 const STATUS_LABEL: Record<ActionStatus, string> = {
@@ -71,11 +93,12 @@ const STATUS_LABEL: Record<ActionStatus, string> = {
 const EMPTY_FORM: RiskForm = {
   department: "",
   role: "",
-  category: "ergonomico",
+  factor: "sobrecarga",
   description: "",
-  hazardSource: "",
+  source: "",
   consequences: "",
   exposedWorkers: "",
+  evidence: "",
   probability: 3,
   severity: 3,
   existingMeasures: "",
@@ -127,7 +150,7 @@ function getStatusClass(status: ActionStatus) {
 }
 
 function storageKey(companyId?: number) {
-  return `nr1check:risk-inventory:${companyId ?? "demo"}`;
+  return `nr1check:psychosocial-risk-inventory:${companyId ?? "demo"}`;
 }
 
 function createId() {
@@ -139,12 +162,14 @@ export default function RiskInventory() {
   const { user } = useUser();
   const { data: companies, isLoading } = trpc.company.my.useQuery();
   const company = companies?.[0];
-  const [risks, setRisks] = useState<RiskItem[]>([]);
+
+  const [risks, setRisks] = useState<PsychosocialRisk[]>([]);
   const [form, setForm] = useState<RiskForm>(EMPTY_FORM);
-  const [filter, setFilter] = useState<"todos" | RiskCategory>("todos");
+  const [filter, setFilter] = useState<"todos" | PsychosocialFactor>("todos");
 
   useEffect(() => {
     if (isLoading) return;
+
     const raw = window.localStorage.getItem(storageKey(company?.id));
     if (!raw) {
       setRisks([]);
@@ -152,7 +177,7 @@ export default function RiskInventory() {
     }
 
     try {
-      const parsed = JSON.parse(raw) as RiskItem[];
+      const parsed = JSON.parse(raw) as PsychosocialRisk[];
       setRisks(Array.isArray(parsed) ? parsed : []);
     } catch {
       setRisks([]);
@@ -166,7 +191,7 @@ export default function RiskInventory() {
 
   const filteredRisks = useMemo(() => {
     if (filter === "todos") return risks;
-    return risks.filter((risk) => risk.category === filter);
+    return risks.filter((risk) => risk.factor === filter);
   }, [filter, risks]);
 
   const stats = useMemo(() => {
@@ -190,7 +215,7 @@ export default function RiskInventory() {
     }
 
     if (!form.description.trim()) {
-      toast.error("Descreva o risco identificado.");
+      toast.error("Descreva o fator psicossocial identificado.");
       return;
     }
 
@@ -199,7 +224,7 @@ export default function RiskInventory() {
       return;
     }
 
-    const item: RiskItem = {
+    const item: PsychosocialRisk = {
       ...form,
       id: createId(),
       createdAt: new Date().toISOString(),
@@ -207,12 +232,12 @@ export default function RiskInventory() {
 
     setRisks((current) => [item, ...current]);
     setForm(EMPTY_FORM);
-    toast.success("Risco adicionado ao inventário.");
+    toast.success("Fator psicossocial adicionado ao inventário.");
   }
 
   function deleteRisk(id: string) {
     setRisks((current) => current.filter((risk) => risk.id !== id));
-    toast.success("Risco removido.");
+    toast.success("Registro removido.");
   }
 
   function updateStatus(id: string, status: ActionStatus) {
@@ -220,68 +245,71 @@ export default function RiskInventory() {
   }
 
   function addExamples() {
-    const examples: RiskItem[] = [
+    const examples: PsychosocialRisk[] = [
       {
         id: createId(),
-        department: "Administrativo",
-        role: "Equipe de escritório",
-        category: "ergonomico",
-        description: "Postura inadequada e permanência prolongada sentado durante a jornada.",
-        hazardSource: "Mobiliário, layout do posto de trabalho e rotina sedentária.",
-        consequences: "Dores lombares, fadiga, desconforto muscular e queda de produtividade.",
-        exposedWorkers: "Colaboradores administrativos",
-        probability: 3,
+        department: "Atendimento",
+        role: "Atendentes e supervisores",
+        factor: "sobrecarga",
+        description: "Alta demanda de atendimento, filas e pressão para resolver solicitações rapidamente.",
+        source: "Organização do trabalho, volume de chamados e contato direto com público.",
+        consequences: "Estresse, exaustão, irritabilidade, conflitos e aumento de absenteísmo.",
+        exposedWorkers: "Equipe de atendimento",
+        evidence: "Relatos, taxa de absenteísmo, registros de fila, reclamações e pesquisa interna.",
+        probability: 4,
         severity: 3,
-        existingMeasures: "Cadeiras ajustáveis em parte dos postos.",
-        recommendedAction: "Revisar ergonomia dos postos, orientar pausas e ajustar mobiliário.",
-        responsible: "Gestor administrativo",
+        existingMeasures: "Reuniões pontuais com supervisão.",
+        recommendedAction: "Revisar escala, criar pausas programadas, definir fluxo de escalonamento e orientar liderança para situações críticas.",
+        responsible: "Gestor de atendimento / RH",
         deadline: "",
-        monitoring: "Revisão trimestral e registro de evidências fotográficas.",
-        status: "pendente",
+        monitoring: "Acompanhar relatos, absenteísmo, rotatividade e nova avaliação em 60 dias.",
+        status: "em_andamento",
         createdAt: new Date().toISOString(),
       },
       {
         id: createId(),
-        department: "Atendimento",
-        role: "Atendentes",
-        category: "psicossocial",
-        description: "Alta demanda, pressão por atendimento rápido e conflitos ocasionais com clientes.",
-        hazardSource: "Organização do trabalho, metas, filas e contato direto com público.",
-        consequences: "Estresse, exaustão, conflitos interpessoais e absenteísmo.",
-        exposedWorkers: "Equipe de atendimento",
+        department: "Comercial",
+        role: "Vendedores",
+        factor: "metas_excessivas",
+        description: "Cobrança intensa por resultados, metas pouco claras e pressão diária por performance.",
+        source: "Modelo de metas, comunicação de liderança e rotina de acompanhamento.",
+        consequences: "Ansiedade, sensação de incapacidade, competição nociva e queda de engajamento.",
+        exposedWorkers: "Equipe comercial",
+        evidence: "Histórico de metas, mensagens de cobrança, feedbacks, relatos e pesquisa psicossocial.",
         probability: 4,
-        severity: 3,
-        existingMeasures: "Reuniões pontuais com liderança.",
-        recommendedAction: "Definir fluxo de escalonamento, pausas e orientação de liderança para situações críticas.",
-        responsible: "Responsável RH / gestor da unidade",
+        severity: 4,
+        existingMeasures: "Reuniões semanais de resultado.",
+        recommendedAction: "Revisar critérios de metas, criar comunicação de cobrança saudável e treinar lideranças em gestão psicossocial.",
+        responsible: "Diretoria comercial",
         deadline: "",
-        monitoring: "Avaliação psicossocial periódica e análise de relatos.",
-        status: "em_andamento",
+        monitoring: "Revisão mensal de metas, relatos e indicadores de rotatividade.",
+        status: "pendente",
         createdAt: new Date().toISOString(),
       },
       {
         id: createId(),
         department: "Operação",
         role: "Equipe operacional",
-        category: "acidente",
-        description: "Risco de queda, tropeço ou escorregamento em áreas de circulação.",
-        hazardSource: "Cabos, piso molhado, caixas e circulação desorganizada.",
-        consequences: "Quedas, lesões leves ou afastamentos.",
-        exposedWorkers: "Todos os trabalhadores da unidade",
+        factor: "falta_clareza",
+        description: "Trabalhadores relatam dúvidas sobre prioridades, responsabilidades e quem decide em situações de conflito.",
+        source: "Processos pouco documentados, comunicação informal e falta de definição de papéis.",
+        consequences: "Conflitos, retrabalho, insegurança, erros operacionais e desgaste emocional.",
+        exposedWorkers: "Equipe operacional",
+        evidence: "Relatos, retrabalhos, conversas com gestores e registros de ocorrência.",
         probability: 3,
-        severity: 4,
-        existingMeasures: "Sinalização básica em algumas áreas.",
-        recommendedAction: "Organizar circulação, sinalizar áreas molhadas e criar rotina de inspeção.",
-        responsible: "Gestor da unidade",
+        severity: 3,
+        existingMeasures: "Orientações verbais.",
+        recommendedAction: "Formalizar responsabilidades por função, criar rotina de alinhamento e registrar decisões de processo.",
+        responsible: "Gestor operacional",
         deadline: "",
-        monitoring: "Checklist mensal de inspeção.",
+        monitoring: "Revisão quinzenal de dúvidas recorrentes e feedback dos trabalhadores.",
         status: "pendente",
         createdAt: new Date().toISOString(),
       },
     ];
 
     setRisks((current) => [...examples, ...current]);
-    toast.success("Exemplos adicionados.");
+    toast.success("Exemplos psicossociais adicionados.");
   }
 
   return (
@@ -326,10 +354,15 @@ export default function RiskInventory() {
             <button onClick={() => navigate("/dashboard")} className="text-sm text-gray-500 hover:text-gray-700">
               ← Voltar ao dashboard
             </button>
-            <h1 className="mt-2 text-2xl font-bold text-gray-900">Inventário de Riscos + Plano de Ação</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Registre riscos ocupacionais, classifique probabilidade/severidade e acompanhe ações preventivas.
+
+            <p className="mt-2 text-sm font-semibold text-brand-700">NR-1 · Escopo psicossocial</p>
+            <h1 className="mt-1 text-2xl font-bold text-gray-900">Inventário Psicossocial + Plano de Ação</h1>
+
+            <p className="mt-1 max-w-3xl text-sm text-gray-500">
+              Registre fatores psicossociais relacionados ao trabalho, classifique prioridade e acompanhe ações.
+              Esta tela não trata riscos físicos, químicos, biológicos, acidentes ou ergonomia como escopo principal.
             </p>
+
             {company && (
               <p className="mt-2 flex items-center gap-1 text-sm text-gray-500">
                 <Building2 className="h-4 w-4" />
@@ -343,6 +376,7 @@ export default function RiskInventory() {
               <Plus className="h-4 w-4" />
               Adicionar exemplos
             </button>
+
             <button onClick={() => window.print()} className="btn-secondary text-sm">
               <Printer className="h-4 w-4" />
               Imprimir / salvar PDF
@@ -350,19 +384,33 @@ export default function RiskInventory() {
           </div>
         </div>
 
+        <section className="mb-6 rounded-2xl border border-brand-200 bg-brand-50 p-5 print:border-gray-300 print:bg-white">
+          <div className="flex gap-3">
+            <AlertTriangle className="mt-0.5 h-5 w-5 text-brand-700" />
+            <div>
+              <h2 className="font-semibold text-brand-900">Foco do NR1Check</h2>
+              <p className="mt-1 text-sm text-brand-800">
+                O objetivo é ajudar a empresa a demonstrar gestão ativa dos riscos psicossociais:
+                identificação, escuta, classificação, plano de ação, monitoramento e evidências.
+                Não é diagnóstico médico individual e não substitui responsável técnico.
+              </p>
+            </div>
+          </div>
+        </section>
+
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5 print:grid-cols-5">
-          <MetricCard label="Riscos registrados" value={stats.total} helper="Inventário atual" />
-          <MetricCard label="Críticos" value={stats.critical} helper="Ação prioritária" tone="red" />
+          <MetricCard label="Fatores mapeados" value={stats.total} helper="Inventário psicossocial" />
+          <MetricCard label="Críticos" value={stats.critical} helper="Prioridade máxima" tone="red" />
           <MetricCard label="Altos" value={stats.high} helper="Acompanhar de perto" tone="orange" />
           <MetricCard label="Ações pendentes" value={stats.pending} helper="Plano de ação" tone="yellow" />
           <MetricCard label="Conclusão" value={`${stats.completion}%`} helper={`${stats.done} concluída(s)`} tone="green" />
         </section>
 
-        <section className="mt-6 grid gap-6 xl:grid-cols-[420px_1fr] print:block">
+        <section className="mt-6 grid gap-6 xl:grid-cols-[430px_1fr] print:block">
           <div className="card print:hidden">
-            <h2 className="text-lg font-bold text-gray-900">Adicionar risco</h2>
+            <h2 className="text-lg font-bold text-gray-900">Adicionar fator psicossocial</h2>
             <p className="mt-1 text-sm text-gray-500">
-              Use linguagem simples. O objetivo é criar evidência e orientar o plano de ação.
+              Use linguagem simples e objetiva. O registro deve virar evidência e orientar ações concretas.
             </p>
 
             <div className="mt-5 space-y-4">
@@ -373,7 +421,7 @@ export default function RiskInventory() {
                     className="input"
                     value={form.department}
                     onChange={(event) => setForm({ ...form, department: event.target.value })}
-                    placeholder="Ex: Administrativo"
+                    placeholder="Ex: Atendimento"
                   />
                 </div>
 
@@ -389,13 +437,13 @@ export default function RiskInventory() {
               </div>
 
               <div>
-                <label className="label">Tipo de risco</label>
+                <label className="label">Fator psicossocial</label>
                 <select
                   className="input"
-                  value={form.category}
-                  onChange={(event) => setForm({ ...form, category: event.target.value as RiskCategory })}
+                  value={form.factor}
+                  onChange={(event) => setForm({ ...form, factor: event.target.value as PsychosocialFactor })}
                 >
-                  {Object.entries(CATEGORY_LABEL).map(([value, label]) => (
+                  {Object.entries(FACTOR_LABEL).map(([value, label]) => (
                     <option key={value} value={value}>
                       {label}
                     </option>
@@ -404,22 +452,22 @@ export default function RiskInventory() {
               </div>
 
               <div>
-                <label className="label">Risco identificado *</label>
+                <label className="label">Descrição do fator identificado *</label>
                 <textarea
                   className="input min-h-[90px]"
                   value={form.description}
                   onChange={(event) => setForm({ ...form, description: event.target.value })}
-                  placeholder="Ex: pressão excessiva por atendimento rápido e conflitos com clientes"
+                  placeholder="Ex: alta pressão por atendimento rápido, conflitos com clientes e falta de pausas"
                 />
               </div>
 
               <div>
-                <label className="label">Fonte / causa do perigo</label>
+                <label className="label">Fonte / causa organizacional</label>
                 <textarea
                   className="input min-h-[70px]"
-                  value={form.hazardSource}
-                  onChange={(event) => setForm({ ...form, hazardSource: event.target.value })}
-                  placeholder="Ex: organização do trabalho, metas, layout, máquinas, produtos ou circulação"
+                  value={form.source}
+                  onChange={(event) => setForm({ ...form, source: event.target.value })}
+                  placeholder="Ex: metas, escala, organização do trabalho, liderança, comunicação, jornada"
                 />
               </div>
 
@@ -429,18 +477,30 @@ export default function RiskInventory() {
                   className="input min-h-[70px]"
                   value={form.consequences}
                   onChange={(event) => setForm({ ...form, consequences: event.target.value })}
-                  placeholder="Ex: estresse, queda, lesão, afastamento, fadiga, erro operacional"
+                  placeholder="Ex: estresse, exaustão, conflitos, absenteísmo, rotatividade, queda de desempenho"
                 />
               </div>
 
-              <div>
-                <label className="label">Trabalhadores expostos</label>
-                <input
-                  className="input"
-                  value={form.exposedWorkers}
-                  onChange={(event) => setForm({ ...form, exposedWorkers: event.target.value })}
-                  placeholder="Ex: 8 atendentes / todos da unidade"
-                />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="label">Trabalhadores expostos</label>
+                  <input
+                    className="input"
+                    value={form.exposedWorkers}
+                    onChange={(event) => setForm({ ...form, exposedWorkers: event.target.value })}
+                    placeholder="Ex: 8 atendentes"
+                  />
+                </div>
+
+                <div>
+                  <label className="label">Evidência / sinal observado</label>
+                  <input
+                    className="input"
+                    value={form.evidence}
+                    onChange={(event) => setForm({ ...form, evidence: event.target.value })}
+                    placeholder="Ex: relatos, pesquisa, absenteísmo"
+                  />
+                </div>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
@@ -478,7 +538,7 @@ export default function RiskInventory() {
               <div className={`rounded-xl border p-3 ${getRiskClass(currentLevel)}`}>
                 <p className="text-sm font-semibold">Classificação automática</p>
                 <p className="mt-1 text-sm">
-                  Score {currentScore}/25 — Risco {getRiskLabel(currentLevel)}
+                  Score {currentScore}/25 — Prioridade {getRiskLabel(currentLevel)}
                 </p>
               </div>
 
@@ -488,7 +548,7 @@ export default function RiskInventory() {
                   className="input min-h-[70px]"
                   value={form.existingMeasures}
                   onChange={(event) => setForm({ ...form, existingMeasures: event.target.value })}
-                  placeholder="Ex: sinalização, orientação verbal, EPIs, pausas, treinamento"
+                  placeholder="Ex: reuniões com liderança, pausas informais, canal de RH, orientações internas"
                 />
               </div>
 
@@ -498,7 +558,7 @@ export default function RiskInventory() {
                   className="input min-h-[80px]"
                   value={form.recommendedAction}
                   onChange={(event) => setForm({ ...form, recommendedAction: event.target.value })}
-                  placeholder="Ex: criar checklist, revisar posto de trabalho, orientar liderança, sinalizar área"
+                  placeholder="Ex: revisar metas, formalizar pausas, treinar liderança, criar fluxo de relatos"
                 />
               </div>
 
@@ -509,7 +569,7 @@ export default function RiskInventory() {
                     className="input"
                     value={form.responsible}
                     onChange={(event) => setForm({ ...form, responsible: event.target.value })}
-                    placeholder="Ex: Gestor da unidade"
+                    placeholder="Ex: RH / gestor da área"
                   />
                 </div>
 
@@ -530,7 +590,7 @@ export default function RiskInventory() {
                   className="input"
                   value={form.monitoring}
                   onChange={(event) => setForm({ ...form, monitoring: event.target.value })}
-                  placeholder="Ex: revisão mensal, checklist, evidência fotográfica"
+                  placeholder="Ex: nova avaliação em 60 dias, reunião mensal, análise de relatos"
                 />
               </div>
 
@@ -545,19 +605,19 @@ export default function RiskInventory() {
             <div className="card">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between print:block">
                 <div>
-                  <h2 className="text-lg font-bold text-gray-900">Inventário de Riscos Ocupacionais</h2>
+                  <h2 className="text-lg font-bold text-gray-900">Inventário Psicossocial</h2>
                   <p className="mt-1 text-sm text-gray-500">
-                    Matriz simples: Probabilidade × Severidade. Use como base para o PGR.
+                    Fatores relacionados à organização, gestão e relações de trabalho.
                   </p>
                 </div>
 
                 <select
                   className="input max-w-xs print:hidden"
                   value={filter}
-                  onChange={(event) => setFilter(event.target.value as "todos" | RiskCategory)}
+                  onChange={(event) => setFilter(event.target.value as "todos" | PsychosocialFactor)}
                 >
-                  <option value="todos">Todos os tipos</option>
-                  {Object.entries(CATEGORY_LABEL).map(([value, label]) => (
+                  <option value="todos">Todos os fatores</option>
+                  {Object.entries(FACTOR_LABEL).map(([value, label]) => (
                     <option key={value} value={value}>
                       {label}
                     </option>
@@ -571,13 +631,15 @@ export default function RiskInventory() {
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-3 py-2 text-left font-semibold text-gray-600">Setor/Função</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-600">Risco</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-600">Tipo</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-600">Fator</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-600">Descrição</th>
                         <th className="px-3 py-2 text-left font-semibold text-gray-600">P×S</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-600">Nível</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-600 print:hidden">Ações</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-600">Prioridade</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-600 print:hidden">Status</th>
+                        <th className="px-3 py-2 text-right font-semibold text-gray-600 print:hidden">Ações</th>
                       </tr>
                     </thead>
+
                     <tbody className="divide-y divide-gray-100 bg-white">
                       {filteredRisks.map((risk) => {
                         const score = getRiskScore(risk.probability, risk.severity);
@@ -588,22 +650,53 @@ export default function RiskInventory() {
                             <td className="px-3 py-3">
                               <p className="font-medium text-gray-900">{risk.department}</p>
                               <p className="text-xs text-gray-500">{risk.role || "Grupo não informado"}</p>
+                              <p className="mt-1 text-xs text-gray-400">{risk.exposedWorkers}</p>
                             </td>
-                            <td className="px-3 py-3 max-w-md">
-                              <p className="text-gray-900">{risk.description}</p>
-                              {risk.consequences && <p className="mt-1 text-xs text-gray-500">Consequências: {risk.consequences}</p>}
-                            </td>
-                            <td className="px-3 py-3">{CATEGORY_LABEL[risk.category]}</td>
+
                             <td className="px-3 py-3">
-                              {risk.probability} × {risk.severity} = {score}
+                              <span className="inline-flex rounded-full border border-brand-200 bg-brand-50 px-2 py-1 text-xs font-medium text-brand-700">
+                                {FACTOR_LABEL[risk.factor]}
+                              </span>
                             </td>
+
+                            <td className="px-3 py-3 max-w-sm">
+                              <p className="font-medium text-gray-900">{risk.description}</p>
+                              {risk.source && <p className="mt-1 text-xs text-gray-500">Causa: {risk.source}</p>}
+                              {risk.consequences && <p className="mt-1 text-xs text-gray-500">Consequências: {risk.consequences}</p>}
+                              {risk.evidence && <p className="mt-1 text-xs text-gray-500">Evidência: {risk.evidence}</p>}
+                            </td>
+
+                            <td className="px-3 py-3">
+                              <p className="font-semibold text-gray-900">{risk.probability}×{risk.severity}</p>
+                              <p className="text-xs text-gray-500">Score {score}/25</p>
+                            </td>
+
                             <td className="px-3 py-3">
                               <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${getRiskClass(level)}`}>
                                 {getRiskLabel(level)}
                               </span>
                             </td>
+
                             <td className="px-3 py-3 print:hidden">
-                              <button onClick={() => deleteRisk(risk.id)} className="text-red-600 hover:text-red-700">
+                              <select
+                                className={`rounded-lg border px-2 py-1 text-xs font-medium ${getStatusClass(risk.status)}`}
+                                value={risk.status}
+                                onChange={(event) => updateStatus(risk.id, event.target.value as ActionStatus)}
+                              >
+                                {Object.entries(STATUS_LABEL).map(([value, label]) => (
+                                  <option key={value} value={value}>
+                                    {label}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+
+                            <td className="px-3 py-3 text-right print:hidden">
+                              <button
+                                onClick={() => deleteRisk(risk.id)}
+                                className="inline-flex items-center rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                                title="Remover"
+                              >
                                 <Trash2 className="h-4 w-4" />
                               </button>
                             </td>
@@ -614,21 +707,26 @@ export default function RiskInventory() {
                   </table>
                 </div>
               ) : (
-                <EmptyInventory onAddExamples={addExamples} />
+                <div className="mt-5 rounded-xl border border-dashed border-gray-300 bg-gray-50 p-8 text-center">
+                  <ClipboardList className="mx-auto h-10 w-10 text-gray-400" />
+                  <h3 className="mt-3 font-semibold text-gray-900">Nenhum fator psicossocial registrado</h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Comece adicionando exemplos ou cadastre um fator observado na empresa.
+                  </p>
+                </div>
               )}
             </div>
 
             <div className="card">
-              <h2 className="text-lg font-bold text-gray-900">Plano de Ação</h2>
+              <h2 className="text-lg font-bold text-gray-900">Plano de Ação Psicossocial</h2>
               <p className="mt-1 text-sm text-gray-500">
-                Cada risco cadastrado gera uma ação de prevenção, correção ou monitoramento.
+                Cada fator mapeado deve ter ação, responsável, prazo e monitoramento.
               </p>
 
               {risks.length ? (
                 <div className="mt-5 space-y-3">
                   {risks.map((risk) => {
-                    const score = getRiskScore(risk.probability, risk.severity);
-                    const level = getRiskLevel(score);
+                    const level = getRiskLevel(getRiskScore(risk.probability, risk.severity));
 
                     return (
                       <div key={risk.id} className="rounded-xl border border-gray-200 bg-white p-4">
@@ -641,31 +739,29 @@ export default function RiskInventory() {
                               <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${getStatusClass(risk.status)}`}>
                                 {STATUS_LABEL[risk.status]}
                               </span>
-                              <span className="text-xs text-gray-500">{risk.department}</span>
                             </div>
 
-                            <p className="mt-2 font-semibold text-gray-900">{risk.recommendedAction}</p>
+                            <h3 className="mt-3 font-semibold text-gray-900">{risk.recommendedAction}</h3>
                             <p className="mt-1 text-sm text-gray-500">
-                              Risco: {risk.description}
+                              Fator: {FACTOR_LABEL[risk.factor]} · Setor: {risk.department}
                             </p>
 
-                            <div className="mt-3 grid gap-2 text-xs text-gray-500 md:grid-cols-3">
-                              <p><strong>Responsável:</strong> {risk.responsible || "não informado"}</p>
-                              <p><strong>Prazo:</strong> {risk.deadline || "não definido"}</p>
-                              <p><strong>Monitoramento:</strong> {risk.monitoring || "não informado"}</p>
-                            </div>
+                            {risk.existingMeasures && (
+                              <p className="mt-2 text-xs text-gray-500">
+                                <strong>Medidas existentes:</strong> {risk.existingMeasures}
+                              </p>
+                            )}
+
+                            {risk.monitoring && (
+                              <p className="mt-1 text-xs text-gray-500">
+                                <strong>Monitoramento:</strong> {risk.monitoring}
+                              </p>
+                            )}
                           </div>
 
-                          <div className="print:hidden">
-                            <select
-                              className="input min-w-[170px]"
-                              value={risk.status}
-                              onChange={(event) => updateStatus(risk.id, event.target.value as ActionStatus)}
-                            >
-                              <option value="pendente">Pendente</option>
-                              <option value="em_andamento">Em andamento</option>
-                              <option value="concluido">Concluído</option>
-                            </select>
+                          <div className="min-w-[180px] rounded-lg bg-gray-50 p-3 text-xs text-gray-600">
+                            <p><strong>Responsável:</strong> {risk.responsible || "Não informado"}</p>
+                            <p className="mt-1"><strong>Prazo:</strong> {risk.deadline || "Não definido"}</p>
                           </div>
                         </div>
                       </div>
@@ -673,24 +769,23 @@ export default function RiskInventory() {
                   })}
                 </div>
               ) : (
-                <div className="mt-5 rounded-xl border border-dashed border-gray-300 bg-gray-50 p-8 text-center">
-                  <CheckCircle2 className="mx-auto h-10 w-10 text-gray-400" />
-                  <p className="mt-3 font-medium text-gray-900">Nenhuma ação criada ainda</p>
-                  <p className="mt-1 text-sm text-gray-500">Adicione um risco para gerar o plano de ação.</p>
-                </div>
+                <p className="mt-5 text-sm text-gray-500">
+                  O plano de ação será criado automaticamente a partir dos fatores psicossociais cadastrados.
+                </p>
               )}
             </div>
-          </div>
-        </section>
 
-        <section className="mt-6 card border-blue-100 bg-blue-50 text-blue-900 print:hidden">
-          <div className="flex gap-3">
-            <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0" />
-            <div>
-              <p className="font-semibold">Uso recomendado</p>
-              <p className="mt-1 text-sm text-blue-800">
-                Esta tela organiza informações para apoiar o GRO/PGR. A validação técnica deve ser feita pelo responsável legal/técnico da empresa quando aplicável.
-              </p>
+            <div className="card">
+              <div className="flex gap-3">
+                <CheckCircle2 className="mt-0.5 h-5 w-5 text-green-600" />
+                <div>
+                  <h2 className="font-semibold text-gray-900">Como usar no PGR</h2>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Use este inventário como base para a seção psicossocial do PGR: fatores identificados, grupos expostos,
+                    critérios de avaliação, classificação, medidas existentes, plano de ação e evidências de acompanhamento.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -699,36 +794,30 @@ export default function RiskInventory() {
   );
 }
 
-function MetricCard({ label, value, helper, tone = "gray" }: { label: string; value: string | number; helper: string; tone?: "gray" | "red" | "orange" | "yellow" | "green" }) {
-  const tones = {
-    gray: "border-gray-200 bg-white text-gray-900",
-    red: "border-red-200 bg-red-50 text-red-900",
-    orange: "border-orange-200 bg-orange-50 text-orange-900",
-    yellow: "border-yellow-200 bg-yellow-50 text-yellow-900",
-    green: "border-green-200 bg-green-50 text-green-900",
-  };
+function MetricCard({
+  label,
+  value,
+  helper,
+  tone = "brand",
+}: {
+  label: string;
+  value: string | number;
+  helper: string;
+  tone?: "brand" | "red" | "orange" | "yellow" | "green";
+}) {
+  const toneClass = {
+    brand: "border-brand-100 bg-white text-brand-700",
+    red: "border-red-100 bg-red-50 text-red-700",
+    orange: "border-orange-100 bg-orange-50 text-orange-700",
+    yellow: "border-yellow-100 bg-yellow-50 text-yellow-700",
+    green: "border-green-100 bg-green-50 text-green-700",
+  }[tone];
 
   return (
-    <div className={`rounded-2xl border p-4 ${tones[tone]}`}>
-      <p className="text-sm opacity-75">{label}</p>
-      <p className="mt-1 text-2xl font-bold">{value}</p>
+    <div className={`rounded-2xl border p-4 ${toneClass}`}>
+      <p className="text-xs font-semibold uppercase tracking-wide opacity-80">{label}</p>
+      <p className="mt-2 text-3xl font-bold">{value}</p>
       <p className="mt-1 text-xs opacity-70">{helper}</p>
-    </div>
-  );
-}
-
-function EmptyInventory({ onAddExamples }: { onAddExamples: () => void }) {
-  return (
-    <div className="mt-5 rounded-xl border border-dashed border-gray-300 bg-gray-50 p-8 text-center">
-      <ClipboardList className="mx-auto h-10 w-10 text-gray-400" />
-      <h3 className="mt-3 font-semibold text-gray-900">Inventário vazio</h3>
-      <p className="mx-auto mt-1 max-w-lg text-sm text-gray-500">
-        Comece adicionando riscos reais da empresa ou use exemplos para visualizar como o inventário e o plano de ação ficam.
-      </p>
-      <button onClick={onAddExamples} className="btn-secondary mt-4 text-sm">
-        <Plus className="h-4 w-4" />
-        Adicionar exemplos
-      </button>
     </div>
   );
 }
