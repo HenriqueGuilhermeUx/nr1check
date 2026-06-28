@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useUser, UserButton } from "@clerk/clerk-react";
 import {
   Activity,
   AlertTriangle,
+  BarChart3,
   CheckCircle2,
   ClipboardList,
   FileText,
@@ -13,7 +14,6 @@ import {
   Shield,
   Trash2,
   Users,
-  BarChart3,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { trpc } from "../lib/trpc";
@@ -21,10 +21,7 @@ import { trpc } from "../lib/trpc";
 type ActionStatus = "pendente" | "em_andamento" | "concluido";
 type RiskLevel = "baixo" | "medio" | "alto" | "critico";
 
-type RiskItem = {
-  id: string;
-  origin?: string;
-  originFindingId?: string;
+type RiskForm = {
   department: string;
   role: string;
   factor: string;
@@ -39,16 +36,14 @@ type RiskItem = {
   responsible: string;
   deadline: string;
   monitoring: string;
-  status: ActionStatus;
-  createdAt: string;
+  actionStatus: ActionStatus;
 };
-
-type RiskForm = Omit<RiskItem, "id" | "createdAt" | "origin" | "originFindingId">;
 
 const NAV = [
   { to: "/dashboard", label: "Visão geral", icon: Activity },
   { to: "/funcionarios", label: "Funcionários", icon: Users },
   { to: "/avaliacao-psicossocial", label: "Avaliação Psicossocial", icon: BarChart3 },
+  { to: "/achados-psicossociais", label: "Achados", icon: CheckCircle2 },
   { to: "/inventario-riscos", label: "Inventário Psicossocial", icon: ClipboardList },
   { to: "/denuncias", label: "Relatos", icon: MessageSquare },
   { to: "/documentos", label: "Evidências / PGR", icon: FileText },
@@ -56,26 +51,23 @@ const NAV = [
 
 const PSYCHOSOCIAL_FACTORS = [
   "Sobrecarga de trabalho",
+  "Ritmo de trabalho intenso",
   "Metas excessivas / cobrança intensa",
   "Assédio moral",
   "Assédio sexual",
   "Conflitos interpessoais",
-  "Falhas de liderança / suporte insuficiente",
+  "Falhas de liderança",
+  "Apoio social insuficiente",
   "Baixa autonomia",
   "Falta de clareza de função",
   "Jornada excessiva / pausas insuficientes",
   "Violência externa / clientes / público",
   "Insegurança no trabalho",
   "Comunicação deficiente",
-  "Reconhecimento e justiça organizacional",
+  "Reconhecimento e satisfação",
+  "Saúde e bem-estar",
   "Outros fatores psicossociais",
 ];
-
-const STATUS_LABEL: Record<ActionStatus, string> = {
-  pendente: "Pendente",
-  em_andamento: "Em andamento",
-  concluido: "Concluído",
-};
 
 const EMPTY_FORM: RiskForm = {
   department: "",
@@ -92,24 +84,14 @@ const EMPTY_FORM: RiskForm = {
   responsible: "",
   deadline: "",
   monitoring: "",
-  status: "pendente",
+  actionStatus: "pendente",
 };
 
-function createId() {
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-
-function riskInventoryStorageKey(companyId?: number) {
-  return `nr1check:psychosocial-risk-inventory:${companyId ?? "demo"}`;
-}
-
-function legacyRiskInventoryStorageKey(companyId?: number) {
-  return `nr1check:risk-inventory:${companyId ?? "demo"}`;
-}
-
-function findingsStorageKey(companyId?: number) {
-  return `nr1check:psychosocial-findings:${companyId ?? "demo"}`;
-}
+const STATUS_LABEL: Record<ActionStatus, string> = {
+  pendente: "Pendente",
+  em_andamento: "Em andamento",
+  concluido: "Concluído",
+};
 
 function getRiskScore(probability: number, severity: number) {
   return probability * severity;
@@ -151,67 +133,74 @@ function getStatusClass(status: ActionStatus) {
   return classes[status];
 }
 
-function todayPlus(days: number) {
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  return date.toISOString().slice(0, 10);
-}
-
 export default function RiskInventory() {
   const navigate = useNavigate();
   const { user } = useUser();
+  const utils = trpc.useUtils();
+
   const { data: companies, isLoading } = trpc.company.my.useQuery();
   const company = companies?.[0];
-  const companyId = company?.id;
+  const companyId = company?.id ?? 0;
 
-  const [risks, setRisks] = useState<RiskItem[]>([]);
+  const { data: risks, isLoading: loadingRisks } = trpc.psychosocial.listInventory.useQuery(
+    { companyId },
+    { enabled: !!companyId },
+  );
+
+  const createRisk = trpc.psychosocial.createInventoryItem.useMutation({
+    onSuccess: async () => {
+      toast.success("Risco salvo no Supabase.");
+      setForm(EMPTY_FORM);
+      await utils.psychosocial.listInventory.invalidate();
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
+  const updateStatus = trpc.psychosocial.updateInventoryStatus.useMutation({
+    onSuccess: async () => {
+      await utils.psychosocial.listInventory.invalidate();
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
+  const deleteRisk = trpc.psychosocial.deleteInventoryItem.useMutation({
+    onSuccess: async () => {
+      toast.success("Risco removido.");
+      await utils.psychosocial.listInventory.invalidate();
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
   const [form, setForm] = useState<RiskForm>(EMPTY_FORM);
   const [filter, setFilter] = useState("todos");
 
-  useEffect(() => {
-    if (isLoading) return;
-
-    const primary = window.localStorage.getItem(riskInventoryStorageKey(companyId));
-    const legacy = window.localStorage.getItem(legacyRiskInventoryStorageKey(companyId));
-
-    if (!primary && !legacy) {
-      setRisks([]);
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(primary ?? legacy ?? "[]") as RiskItem[];
-      setRisks(Array.isArray(parsed) ? parsed : []);
-    } catch {
-      setRisks([]);
-    }
-  }, [companyId, isLoading]);
-
-  useEffect(() => {
-    if (isLoading) return;
-    window.localStorage.setItem(riskInventoryStorageKey(companyId), JSON.stringify(risks));
-  }, [companyId, isLoading, risks]);
+  const riskList = risks ?? [];
 
   const filteredRisks = useMemo(() => {
-    if (filter === "todos") return risks;
-    return risks.filter((risk) => risk.factor === filter);
-  }, [filter, risks]);
+    if (filter === "todos") return riskList;
+    return riskList.filter((risk) => risk.factor === filter);
+  }, [filter, riskList]);
 
   const stats = useMemo(() => {
-    const total = risks.length;
-    const critical = risks.filter((risk) => getRiskLevel(getRiskScore(risk.probability, risk.severity)) === "critico").length;
-    const high = risks.filter((risk) => getRiskLevel(getRiskScore(risk.probability, risk.severity)) === "alto").length;
-    const pending = risks.filter((risk) => risk.status !== "concluido").length;
-    const done = risks.filter((risk) => risk.status === "concluido").length;
+    const total = riskList.length;
+    const critical = riskList.filter((risk) => risk.riskLevel === "critico").length;
+    const high = riskList.filter((risk) => risk.riskLevel === "alto").length;
+    const pending = riskList.filter((risk) => risk.actionStatus !== "concluido").length;
+    const done = riskList.filter((risk) => risk.actionStatus === "concluido").length;
     const completion = total ? Math.round((done / total) * 100) : 0;
 
     return { total, critical, high, pending, done, completion };
-  }, [risks]);
+  }, [riskList]);
 
   const currentScore = getRiskScore(form.probability, form.severity);
   const currentLevel = getRiskLevel(currentScore);
 
   function addRisk() {
+    if (!companyId) {
+      toast.error("Cadastre uma empresa primeiro.");
+      return;
+    }
+
     if (!form.department.trim()) {
       toast.error("Informe o setor ou área.");
       return;
@@ -227,129 +216,10 @@ export default function RiskInventory() {
       return;
     }
 
-    const item: RiskItem = {
+    createRisk.mutate({
+      companyId,
       ...form,
-      id: createId(),
-      createdAt: new Date().toISOString(),
-    };
-
-    setRisks((current) => [item, ...current]);
-    setForm(EMPTY_FORM);
-    toast.success("Risco psicossocial adicionado ao inventário.");
-  }
-
-  function deleteRisk(id: string) {
-    setRisks((current) => current.filter((risk) => risk.id !== id));
-    toast.success("Risco removido.");
-  }
-
-  function updateStatus(id: string, status: ActionStatus) {
-    setRisks((current) => current.map((risk) => (risk.id === id ? { ...risk, status } : risk)));
-  }
-
-  function importFindings() {
-    const raw = window.localStorage.getItem(findingsStorageKey(companyId));
-    if (!raw) {
-      toast.error("Nenhum achado de avaliação encontrado.");
-      return;
-    }
-
-    try {
-      const findings = JSON.parse(raw) as Array<{
-        id: string;
-        department: string;
-        dimension: string;
-        description: string;
-        evidenceSource: string;
-        probability: number;
-        severity: number;
-        suggestedAction: string;
-        responsible: string;
-        deadline: string;
-      }>;
-
-      const alreadyImported = new Set(risks.map((risk) => risk.originFindingId).filter(Boolean));
-      const mapped: RiskItem[] = findings
-        .filter((finding) => !alreadyImported.has(finding.id))
-        .map((finding) => ({
-          id: createId(),
-          origin: "avaliacao_psicossocial",
-          originFindingId: finding.id,
-          department: finding.department,
-          role: "Grupo/setor avaliado",
-          factor: finding.dimension,
-          description: finding.description,
-          evidence: finding.evidenceSource,
-          consequences:
-            "Possível adoecimento relacionado ao trabalho, queda de engajamento, conflitos, absenteísmo ou redução de desempenho.",
-          exposedWorkers: "Trabalhadores do setor/grupo avaliado",
-          probability: finding.probability,
-          severity: finding.severity,
-          existingMeasures: "",
-          recommendedAction: finding.suggestedAction,
-          responsible: finding.responsible,
-          deadline: finding.deadline,
-          monitoring: "Acompanhar execução da ação, registrar evidências e reavaliar percepção dos trabalhadores.",
-          status: "pendente",
-          createdAt: new Date().toISOString(),
-        }));
-
-      if (!mapped.length) {
-        toast("Nenhum novo achado para importar.");
-        return;
-      }
-
-      setRisks((current) => [...mapped, ...current]);
-      toast.success(`${mapped.length} achado(s) importado(s).`);
-    } catch {
-      toast.error("Não foi possível importar achados.");
-    }
-  }
-
-  function addExamples() {
-    const examples: RiskItem[] = [
-      {
-        id: createId(),
-        department: "Atendimento",
-        role: "Atendentes",
-        factor: "Sobrecarga de trabalho",
-        description: "Alta demanda, pressão por atendimento rápido e dificuldade de pausas durante picos de movimento.",
-        evidence: "Avaliação psicossocial + relatos agregados",
-        consequences: "Estresse, exaustão emocional, erros de atendimento, absenteísmo e conflitos.",
-        exposedWorkers: "Equipe de atendimento",
-        probability: 4,
-        severity: 4,
-        existingMeasures: "Reuniões pontuais com liderança.",
-        recommendedAction: "Revisar dimensionamento, definir pausas, criar fluxo de escalonamento e acompanhar carga semanal.",
-        responsible: "Gestor de atendimento / RH",
-        deadline: todayPlus(30),
-        monitoring: "Revisão mensal dos indicadores e nova escuta com equipe.",
-        status: "pendente",
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: createId(),
-        department: "Comercial",
-        role: "Vendas",
-        factor: "Metas excessivas / cobrança intensa",
-        description: "Cobrança diária focada apenas em resultado, com baixa previsibilidade de prioridades e pouca orientação de apoio.",
-        evidence: "Questionário psicossocial",
-        consequences: "Ansiedade, conflito com liderança, queda de engajamento e rotatividade.",
-        exposedWorkers: "Equipe comercial",
-        probability: 4,
-        severity: 3,
-        existingMeasures: "Reunião semanal de performance.",
-        recommendedAction: "Revisar comunicação de metas, treinar liderança e incluir rotina de feedback construtivo.",
-        responsible: "Diretoria comercial / RH",
-        deadline: todayPlus(45),
-        monitoring: "Acompanhar relatos, turnover e percepção da equipe.",
-        status: "em_andamento",
-        createdAt: new Date().toISOString(),
-      },
-    ];
-
-    setRisks((current) => [...examples, ...current]);
-    toast.success("Exemplos adicionados.");
+    });
   }
 
   return (
@@ -396,28 +266,32 @@ export default function RiskInventory() {
             </button>
             <h1 className="mt-2 text-2xl font-bold text-gray-900">Inventário Psicossocial + Plano de Ação</h1>
             <p className="mt-1 text-sm text-gray-500">
-              Registre apenas fatores psicossociais relacionados ao trabalho, classifique prioridade e acompanhe medidas.
+              Agora salvo no Supabase: risco, matriz, ação, responsável, prazo e status.
             </p>
-            {company && (
-              <p className="mt-2 text-sm text-gray-500">{company.name}</p>
-            )}
+            {company && <p className="mt-2 text-sm text-gray-500">{company.name}</p>}
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <button onClick={importFindings} className="btn-secondary text-sm">
-              <CheckCircle2 className="h-4 w-4" />
-              Importar achados
-            </button>
-            <button onClick={addExamples} className="btn-secondary text-sm">
-              <Plus className="h-4 w-4" />
-              Exemplos
-            </button>
-            <button onClick={() => window.print()} className="btn-secondary text-sm">
-              <Printer className="h-4 w-4" />
-              Imprimir / salvar PDF
-            </button>
-          </div>
+          <button onClick={() => window.print()} className="btn-secondary text-sm">
+            <Printer className="h-4 w-4" />
+            Imprimir / salvar PDF
+          </button>
         </div>
+
+        {isLoading ? (
+          <div className="card">
+            <p className="text-gray-500">Carregando empresa...</p>
+          </div>
+        ) : !company ? (
+          <div className="card border-yellow-200 bg-yellow-50">
+            <div className="flex gap-3">
+              <AlertTriangle className="h-5 w-5 text-yellow-700" />
+              <div>
+                <h2 className="font-semibold text-yellow-900">Cadastre a empresa primeiro</h2>
+                <Link to="/comecar" className="btn-primary mt-4">Configurar empresa →</Link>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5 print:grid-cols-5">
           <MetricCard label="Riscos psicossociais" value={stats.total} helper="Inventário atual" />
@@ -430,96 +304,35 @@ export default function RiskInventory() {
         <section className="mt-6 grid gap-6 xl:grid-cols-[420px_1fr] print:block">
           <div className="card print:hidden">
             <h2 className="text-lg font-bold text-gray-900">Adicionar fator psicossocial</h2>
-            <p className="mt-1 text-sm text-gray-500">
-              O objetivo é criar evidência de gestão: risco, fonte, consequência, ação, responsável e prazo.
-            </p>
 
             <div className="mt-5 space-y-4">
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <label className="label">Setor / área *</label>
-                  <input
-                    className="input"
-                    value={form.department}
-                    onChange={(event) => setForm({ ...form, department: event.target.value })}
-                    placeholder="Ex: Atendimento"
-                  />
+                  <input className="input" value={form.department} onChange={(event) => setForm({ ...form, department: event.target.value })} />
                 </div>
-
                 <div>
                   <label className="label">Função / grupo exposto</label>
-                  <input
-                    className="input"
-                    value={form.role}
-                    onChange={(event) => setForm({ ...form, role: event.target.value })}
-                    placeholder="Ex: Atendentes"
-                  />
+                  <input className="input" value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value })} />
                 </div>
               </div>
 
               <div>
                 <label className="label">Fator psicossocial</label>
-                <select
-                  className="input"
-                  value={form.factor}
-                  onChange={(event) => setForm({ ...form, factor: event.target.value })}
-                >
-                  {PSYCHOSOCIAL_FACTORS.map((factor) => (
-                    <option key={factor} value={factor}>
-                      {factor}
-                    </option>
-                  ))}
+                <select className="input" value={form.factor} onChange={(event) => setForm({ ...form, factor: event.target.value })}>
+                  {PSYCHOSOCIAL_FACTORS.map((factor) => <option key={factor} value={factor}>{factor}</option>)}
                 </select>
               </div>
 
-              <div>
-                <label className="label">Descrição do risco *</label>
-                <textarea
-                  className="input min-h-[90px]"
-                  value={form.description}
-                  onChange={(event) => setForm({ ...form, description: event.target.value })}
-                  placeholder="Ex: pressão excessiva por metas e dificuldade de pausas"
-                />
-              </div>
-
-              <div>
-                <label className="label">Fonte de evidência</label>
-                <input
-                  className="input"
-                  value={form.evidence}
-                  onChange={(event) => setForm({ ...form, evidence: event.target.value })}
-                  placeholder="Ex: questionário, relato, reunião, observação"
-                />
-              </div>
-
-              <div>
-                <label className="label">Consequências possíveis</label>
-                <textarea
-                  className="input min-h-[70px]"
-                  value={form.consequences}
-                  onChange={(event) => setForm({ ...form, consequences: event.target.value })}
-                  placeholder="Ex: estresse, exaustão, conflitos, absenteísmo"
-                />
-              </div>
-
-              <div>
-                <label className="label">Trabalhadores expostos</label>
-                <input
-                  className="input"
-                  value={form.exposedWorkers}
-                  onChange={(event) => setForm({ ...form, exposedWorkers: event.target.value })}
-                  placeholder="Ex: equipe de atendimento / setor comercial"
-                />
-              </div>
+              <Field label="Descrição do risco *" value={form.description} onChange={(value) => setForm({ ...form, description: value })} textarea />
+              <Field label="Fonte de evidência" value={form.evidence} onChange={(value) => setForm({ ...form, evidence: value })} />
+              <Field label="Consequências possíveis" value={form.consequences} onChange={(value) => setForm({ ...form, consequences: value })} textarea />
+              <Field label="Trabalhadores expostos" value={form.exposedWorkers} onChange={(value) => setForm({ ...form, exposedWorkers: value })} />
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <label className="label">Probabilidade: {form.probability}</label>
-                  <select
-                    className="input"
-                    value={form.probability}
-                    onChange={(event) => setForm({ ...form, probability: Number(event.target.value) })}
-                  >
+                  <select className="input" value={form.probability} onChange={(event) => setForm({ ...form, probability: Number(event.target.value) })}>
                     <option value={1}>1 - Rara</option>
                     <option value={2}>2 - Baixa</option>
                     <option value={3}>3 - Possível</option>
@@ -527,14 +340,9 @@ export default function RiskInventory() {
                     <option value={5}>5 - Frequente</option>
                   </select>
                 </div>
-
                 <div>
                   <label className="label">Severidade: {form.severity}</label>
-                  <select
-                    className="input"
-                    value={form.severity}
-                    onChange={(event) => setForm({ ...form, severity: Number(event.target.value) })}
-                  >
+                  <select className="input" value={form.severity} onChange={(event) => setForm({ ...form, severity: Number(event.target.value) })}>
                     <option value={1}>1 - Leve</option>
                     <option value={2}>2 - Moderada</option>
                     <option value={3}>3 - Relevante</option>
@@ -546,168 +354,98 @@ export default function RiskInventory() {
 
               <div className={`rounded-xl border p-3 ${getRiskClass(currentLevel)}`}>
                 <p className="text-sm font-semibold">Classificação automática</p>
-                <p className="mt-1 text-sm">
-                  Score {currentScore}/25 — Risco {getRiskLabel(currentLevel)}
-                </p>
+                <p className="mt-1 text-sm">Score {currentScore}/25 — Risco {getRiskLabel(currentLevel)}</p>
               </div>
 
+              <Field label="Medidas existentes" value={form.existingMeasures} onChange={(value) => setForm({ ...form, existingMeasures: value })} textarea />
+              <Field label="Ação preventiva/corretiva *" value={form.recommendedAction} onChange={(value) => setForm({ ...form, recommendedAction: value })} textarea />
+              <Field label="Responsável" value={form.responsible} onChange={(value) => setForm({ ...form, responsible: value })} />
               <div>
-                <label className="label">Medidas existentes</label>
-                <textarea
-                  className="input min-h-[70px]"
-                  value={form.existingMeasures}
-                  onChange={(event) => setForm({ ...form, existingMeasures: event.target.value })}
-                  placeholder="Ex: reuniões, pausas, canal de relatos, orientação à liderança"
-                />
+                <label className="label">Prazo</label>
+                <input className="input" type="date" value={form.deadline} onChange={(event) => setForm({ ...form, deadline: event.target.value })} />
               </div>
+              <Field label="Monitoramento" value={form.monitoring} onChange={(value) => setForm({ ...form, monitoring: value })} textarea />
 
-              <div>
-                <label className="label">Ação preventiva/corretiva *</label>
-                <textarea
-                  className="input min-h-[80px]"
-                  value={form.recommendedAction}
-                  onChange={(event) => setForm({ ...form, recommendedAction: event.target.value })}
-                  placeholder="Ex: revisar metas, treinar liderança, criar fluxo de escalonamento"
-                />
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="label">Responsável</label>
-                  <input
-                    className="input"
-                    value={form.responsible}
-                    onChange={(event) => setForm({ ...form, responsible: event.target.value })}
-                    placeholder="Ex: RH / gestor da área"
-                  />
-                </div>
-
-                <div>
-                  <label className="label">Prazo</label>
-                  <input
-                    className="input"
-                    type="date"
-                    value={form.deadline}
-                    onChange={(event) => setForm({ ...form, deadline: event.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="label">Monitoramento</label>
-                <input
-                  className="input"
-                  value={form.monitoring}
-                  onChange={(event) => setForm({ ...form, monitoring: event.target.value })}
-                  placeholder="Ex: revisão mensal, nova escuta, indicador de absenteísmo"
-                />
-              </div>
-
-              <button onClick={addRisk} className="btn-primary w-full">
+              <button onClick={addRisk} disabled={createRisk.isPending} className="btn-primary w-full">
                 <Plus className="h-4 w-4" />
-                Adicionar ao inventário
+                {createRisk.isPending ? "Salvando..." : "Salvar no Supabase"}
               </button>
             </div>
           </div>
 
-          <div className="space-y-6">
-            <div className="card">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between print:block">
-                <div>
-                  <h2 className="text-lg font-bold text-gray-900">Inventário de fatores psicossociais</h2>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Base para plano de ação, revisão do PGR e evidências de gestão.
-                  </p>
-                </div>
-
-                <select className="input max-w-xs print:hidden" value={filter} onChange={(event) => setFilter(event.target.value)}>
+          <div className="space-y-4">
+            <div className="card print:hidden">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <h2 className="text-lg font-bold text-gray-900">Inventário salvo</h2>
+                <select className="input max-w-xs" value={filter} onChange={(event) => setFilter(event.target.value)}>
                   <option value="todos">Todos os fatores</option>
-                  {PSYCHOSOCIAL_FACTORS.map((factor) => (
-                    <option key={factor} value={factor}>
-                      {factor}
-                    </option>
-                  ))}
+                  {PSYCHOSOCIAL_FACTORS.map((factor) => <option key={factor} value={factor}>{factor}</option>)}
                 </select>
               </div>
-
-              {filteredRisks.length ? (
-                <div className="mt-5 overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200 text-sm">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-600">Setor/Função</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-600">Fator</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-600">Risco</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-600">P×S</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-600">Ação</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-600">Status</th>
-                        <th className="px-3 py-2 text-right font-semibold text-gray-600 print:hidden">Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200 bg-white">
-                      {filteredRisks.map((risk) => {
-                        const level = getRiskLevel(getRiskScore(risk.probability, risk.severity));
-                        return (
-                          <tr key={risk.id} className="align-top">
-                            <td className="px-3 py-3">
-                              <p className="font-medium text-gray-900">{risk.department}</p>
-                              <p className="text-xs text-gray-500">{risk.role || "grupo não informado"}</p>
-                            </td>
-                            <td className="px-3 py-3 text-gray-700">{risk.factor}</td>
-                            <td className="px-3 py-3">
-                              <p className="font-medium text-gray-900">{risk.description}</p>
-                              <p className="mt-1 text-xs text-gray-500">
-                                Evidência: {risk.evidence || "não informada"}
-                              </p>
-                            </td>
-                            <td className="px-3 py-3">
-                              <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${getRiskClass(level)}`}>
-                                {risk.probability}×{risk.severity} · {getRiskLabel(level)}
-                              </span>
-                            </td>
-                            <td className="px-3 py-3">
-                              <p className="text-gray-700">{risk.recommendedAction}</p>
-                              <p className="mt-1 text-xs text-gray-500">
-                                Resp.: {risk.responsible || "não informado"} · Prazo: {risk.deadline || "sem prazo"}
-                              </p>
-                            </td>
-                            <td className="px-3 py-3">
-                              <select
-                                className={`rounded-full border px-2 py-1 text-xs font-semibold print:hidden ${getStatusClass(risk.status)}`}
-                                value={risk.status}
-                                onChange={(event) => updateStatus(risk.id, event.target.value as ActionStatus)}
-                              >
-                                {Object.entries(STATUS_LABEL).map(([value, label]) => (
-                                  <option key={value} value={value}>
-                                    {label}
-                                  </option>
-                                ))}
-                              </select>
-                              <span className={`hidden rounded-full border px-2 py-1 text-xs font-semibold print:inline-flex ${getStatusClass(risk.status)}`}>
-                                {STATUS_LABEL[risk.status]}
-                              </span>
-                            </td>
-                            <td className="px-3 py-3 text-right print:hidden">
-                              <button onClick={() => deleteRisk(risk.id)} className="text-gray-400 hover:text-red-600">
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="mt-5 rounded-xl border border-dashed border-gray-300 p-8 text-center">
-                  <AlertTriangle className="mx-auto h-10 w-10 text-gray-400" />
-                  <p className="mt-3 font-medium text-gray-700">Nenhum risco psicossocial registrado.</p>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Importe achados da avaliação ou cadastre fatores manualmente.
-                  </p>
-                </div>
-              )}
             </div>
+
+            {loadingRisks ? (
+              <div className="card"><p className="text-gray-500">Carregando inventário...</p></div>
+            ) : filteredRisks.length ? (
+              filteredRisks.map((risk) => {
+                const score = getRiskScore(risk.probability, risk.severity);
+                const level = risk.riskLevel as RiskLevel;
+
+                return (
+                  <div key={risk.id} className="card">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-lg font-bold text-gray-900">{risk.factor}</h3>
+                          <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${getRiskClass(level)}`}>
+                            {getRiskLabel(level)} · {score}/25
+                          </span>
+                          <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${getStatusClass(risk.actionStatus as ActionStatus)}`}>
+                            {STATUS_LABEL[risk.actionStatus as ActionStatus] ?? risk.actionStatus}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-sm text-gray-500">{risk.department} {risk.role ? `· ${risk.role}` : ""}</p>
+                        <p className="mt-3 text-sm text-gray-700">{risk.description}</p>
+                      </div>
+
+                      <button
+                        onClick={() => deleteRisk.mutate({ companyId, id: risk.id })}
+                        className="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-600 print:hidden"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    <div className="mt-4 grid gap-3 md:grid-cols-2">
+                      <Info title="Evidência" text={risk.evidence ?? "Não informada"} />
+                      <Info title="Consequências" text={risk.consequences ?? "Não informadas"} />
+                      <Info title="Ação" text={risk.recommendedAction} />
+                      <Info title="Responsável / Prazo" text={`${risk.responsible ?? "Não definido"}${risk.deadline ? ` · ${new Date(risk.deadline).toLocaleDateString("pt-BR")}` : ""}`} />
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap gap-2 print:hidden">
+                      {(["pendente", "em_andamento", "concluido"] as ActionStatus[]).map((status) => (
+                        <button
+                          key={status}
+                          onClick={() => updateStatus.mutate({ companyId, id: risk.id, actionStatus: status })}
+                          className="btn-secondary text-xs"
+                        >
+                          {STATUS_LABEL[status]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="card text-center py-12">
+                <ClipboardList className="mx-auto h-10 w-10 text-gray-400" />
+                <h2 className="mt-4 text-lg font-bold text-gray-900">Nenhum risco registrado</h2>
+                <p className="mt-2 text-sm text-gray-500">
+                  Gere achados em /achados-psicossociais ou cadastre manualmente.
+                </p>
+              </div>
+            )}
           </div>
         </section>
       </main>
@@ -715,30 +453,42 @@ export default function RiskInventory() {
   );
 }
 
-function MetricCard({
-  label,
-  value,
-  helper,
-  tone = "default",
-}: {
-  label: string;
-  value: string | number;
-  helper: string;
-  tone?: "default" | "green" | "yellow" | "orange" | "red";
-}) {
+function Field({ label, value, onChange, textarea = false }: { label: string; value: string; onChange: (value: string) => void; textarea?: boolean }) {
+  return (
+    <div>
+      <label className="label">{label}</label>
+      {textarea ? (
+        <textarea className="input min-h-[70px]" value={value} onChange={(event) => onChange(event.target.value)} />
+      ) : (
+        <input className="input" value={value} onChange={(event) => onChange(event.target.value)} />
+      )}
+    </div>
+  );
+}
+
+function Info({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="rounded-xl bg-gray-50 p-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{title}</p>
+      <p className="mt-1 text-sm text-gray-700">{text}</p>
+    </div>
+  );
+}
+
+function MetricCard({ label, value, helper, tone = "gray" }: { label: string; value: string | number; helper: string; tone?: "gray" | "red" | "orange" | "yellow" | "green" }) {
   const tones = {
-    default: "bg-white border-gray-200 text-gray-900",
-    green: "bg-green-50 border-green-200 text-green-800",
-    yellow: "bg-yellow-50 border-yellow-200 text-yellow-800",
-    orange: "bg-orange-50 border-orange-200 text-orange-800",
-    red: "bg-red-50 border-red-200 text-red-800",
+    gray: "text-gray-900",
+    red: "text-red-700",
+    orange: "text-orange-700",
+    yellow: "text-yellow-700",
+    green: "text-green-700",
   };
 
   return (
-    <div className={`rounded-2xl border p-5 ${tones[tone]}`}>
-      <p className="text-sm font-medium opacity-80">{label}</p>
-      <p className="mt-2 text-3xl font-bold">{value}</p>
-      <p className="mt-1 text-xs opacity-70">{helper}</p>
+    <div className="card">
+      <p className="text-sm text-gray-500">{label}</p>
+      <p className={`mt-2 text-2xl font-bold ${tones[tone]}`}>{value}</p>
+      <p className="mt-1 text-xs text-gray-500">{helper}</p>
     </div>
   );
 }
