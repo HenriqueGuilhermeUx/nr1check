@@ -40,20 +40,17 @@ function TRPCProviderWithClerk() {
         httpBatchLink({
           url: `${API_BASE_URL}/api/trpc`,
           transformer: superjson,
-
           fetch: async (url, options) => {
             const headers = new Headers(options?.headers);
 
-            if (isLoaded) {
-              try {
-                const token = await getToken();
+            try {
+              const token = await getToken();
 
-                if (token) {
-                  headers.set("authorization", `Bearer ${token}`);
-                }
-              } catch (error) {
-                console.error("Erro ao obter token Clerk para tRPC:", error);
+              if (token) {
+                headers.set("authorization", `Bearer ${token}`);
               }
+            } catch (error) {
+              console.error("Erro ao obter token Clerk para tRPC:", error);
             }
 
             return fetch(url, {
@@ -64,7 +61,18 @@ function TRPCProviderWithClerk() {
         }),
       ],
     });
-  }, [getToken, isLoaded]);
+  }, [getToken]);
+
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="rounded-2xl bg-white p-6 shadow-sm border border-gray-200 text-center">
+          <div className="mx-auto h-10 w-10 rounded-xl bg-brand-600" />
+          <p className="mt-4 text-sm text-gray-500">Carregando sessão...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <QueryClientProvider client={queryClient}>
