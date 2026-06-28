@@ -8,7 +8,6 @@ import {
   Building2,
   CheckCircle2,
   ClipboardList,
-  FileCheck,
   FileText,
   Lock,
   MessageSquare,
@@ -36,7 +35,6 @@ const NAV = [
   { to: "/funcionarios", label: "Funcionários", icon: Users },
   { to: "/avaliacao-psicossocial", label: "Avaliação", icon: BarChart3 },
   { to: "/inventario-riscos", label: "Inventário + Plano", icon: FileText },
-  { to: "/documentos-assinaturas", label: "Documentos", icon: FileCheck },
   { to: "/denuncias", label: "Relatos", icon: MessageSquare },
   { to: "/painel-defesa", label: "Painel de Defesa", icon: Shield },
 ];
@@ -64,7 +62,7 @@ const PHASES: Phase[] = [
     id: 3,
     title: "Coleta sem depender de WhatsApp",
     description: "Permitir resposta por link individual, QR Code, intranet, comunicado interno, e-mail, SMS manual ou WhatsApp quando disponível.",
-    status: "feito",
+    status: "em_andamento",
     route: "/avaliacao-psicossocial",
     button: "Gerenciar coleta",
     evidence: "Links individuais, QR, comunicado e registro de distribuição.",
@@ -109,9 +107,9 @@ const PHASES: Phase[] = [
     id: 8,
     title: "Dossiê de Evidências",
     description: "Gerar pacote de evidências para demonstrar que a empresa avaliou, analisou, agiu e revisou.",
-    status: "em_andamento",
-    route: "/documentos-assinaturas",
-    button: "Gerar documentos",
+    status: "pendente",
+    route: "/documentos",
+    button: "Gerar evidências",
     evidence: "PDF com ciclo, participação, achados, ações, relatos e revisões.",
   },
   {
@@ -119,7 +117,7 @@ const PHASES: Phase[] = [
     title: "Seção Psicossocial do PGR",
     description: "Gerar uma seção psicossocial para anexar ao PGR, sem prometer substituir responsável técnico.",
     status: "pendente",
-    route: "/documentos-assinaturas",
+    route: "/documentos",
     button: "Gerar seção PGR",
     evidence: "Metodologia, riscos identificados, plano de ação e próxima revisão.",
   },
@@ -290,8 +288,8 @@ export default function NR1Obligations() {
                   Vamos seguir essas 10 fases, uma por uma, até o produto ficar completo.
                 </p>
               </div>
-              <Link to="/documentos-assinaturas" className="btn-primary hidden sm:inline-flex">
-                Documentos <ArrowRight className="h-4 w-4" />
+              <Link to="/avaliacao-psicossocial" className="btn-primary hidden sm:inline-flex">
+                Próxima fase <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
 
