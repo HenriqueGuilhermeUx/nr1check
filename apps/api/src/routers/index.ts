@@ -3,6 +3,7 @@ import { authRouter } from "./auth";
 import { companyRouter } from "./company";
 import { employeeRouter } from "./employee";
 import { assessmentRouter } from "./assessment";
+import { psychosocialRouter } from "./psychosocial";
 import { courseRouter } from "./course";
 import { complaintRouter } from "./complaint";
 import { pgrRouter } from "./pgr";
@@ -15,6 +16,7 @@ export const appRouter = router({
   company: companyRouter,
   employee: employeeRouter,
   assessment: assessmentRouter,
+  psychosocial: psychosocialRouter,
   course: courseRouter,
   complaint: complaintRouter,
   pgr: pgrRouter,
