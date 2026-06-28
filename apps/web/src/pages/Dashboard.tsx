@@ -1,28 +1,14 @@
 import { Link } from "react-router-dom";
-import { useUser, UserButton } from "@clerk/clerk-react";
 import {
-  Activity,
-  AlertTriangle,
   ArrowRight,
-  BarChart3,
   Building2,
   CheckCircle2,
-  ClipboardCheck,
-  ClipboardList,
-  FileCheck,
-  FileText,
   HelpCircle,
   Lock,
-  MessageSquare,
   PlayCircle,
-  Shield,
-  Sparkles,
-  Target,
-  Users,
 } from "lucide-react";
 import { trpc } from "../lib/trpc";
-
-type RiskLevel = "baixo" | "medio" | "alto" | "critico";
+import { AppShell, EmptyPanel, MetricCard, PageHeader, StatusBadge } from "../components/AppShell";
 
 type StepStatus = "feito" | "em_andamento" | "pendente";
 
@@ -36,32 +22,10 @@ type CockpitStep = {
   evidence: string;
 };
 
-const NAV = [
-  { to: "/dashboard", label: "Cockpit", icon: Activity },
-  { to: "/obrigacoes-nr1", label: "Obrigações NR-1", icon: ClipboardList },
-  { to: "/funcionarios", label: "Trabalhadores", icon: Users },
-  { to: "/avaliacao-psicossocial", label: "Avaliação", icon: BarChart3 },
-  { to: "/achados-psicossociais", label: "Achados", icon: Sparkles },
-  { to: "/inventario-riscos", label: "Inventário + Plano", icon: ClipboardCheck },
-  { to: "/documentos-assinaturas", label: "Documentos", icon: FileCheck },
-  { to: "/denuncias", label: "Relatos", icon: MessageSquare },
-  { to: "/painel-defesa", label: "Painel de Defesa", icon: Shield },
-];
-
-const RISK_LABEL: Record<RiskLevel, string> = {
-  baixo: "Baixo",
-  medio: "Médio",
-  alto: "Alto",
-  critico: "Crítico",
-};
-
-function stepClass(status: StepStatus) {
-  const map: Record<StepStatus, string> = {
-    feito: "border-green-200 bg-green-50 text-green-700",
-    em_andamento: "border-yellow-200 bg-yellow-50 text-yellow-700",
-    pendente: "border-gray-200 bg-gray-50 text-gray-600",
-  };
-  return map[status];
+function stepTone(status: StepStatus): "green" | "yellow" | "gray" {
+  if (status === "feito") return "green";
+  if (status === "em_andamento") return "yellow";
+  return "gray";
 }
 
 function stepLabel(status: StepStatus) {
@@ -83,8 +47,6 @@ function overallClass(level: "verde" | "amarelo" | "vermelho") {
 }
 
 export default function Dashboard() {
-  const { user } = useUser();
-
   const { data: companies, isLoading: loadingCompany } = trpc.company.my.useQuery();
   const company = companies?.[0];
   const companyId = company?.id ?? 0;
@@ -163,7 +125,7 @@ export default function Dashboard() {
       description: "Usar link, QR, intranet, e-mail ou WhatsApp opcional.",
       route: "/avaliacao-psicossocial",
       cta: "Gerenciar coleta",
-      status: responseCount >= 3 ? "feito" : cycleCount > 0 ? "em_andamento" : "pendente",
+      status: Number(responseCount) >= 3 ? "feito" : cycleCount > 0 ? "em_andamento" : "pendente",
       evidence: `${responseCount}/${invitedCount || 0} resposta(s) · ${responseRate}% participação.`,
     },
     {
@@ -172,7 +134,7 @@ export default function Dashboard() {
       description: "Transformar respostas em achados por dimensão.",
       route: "/achados-psicossociais",
       cta: "Gerar achados",
-      status: findingCount > 0 ? "feito" : responseCount >= 3 ? "em_andamento" : "pendente",
+      status: findingCount > 0 ? "feito" : Number(responseCount) >= 3 ? "em_andamento" : "pendente",
       evidence: `${findingCount} achado(s) salvo(s).`,
     },
     {
@@ -197,248 +159,154 @@ export default function Dashboard() {
 
   const done = steps.filter((step) => step.status === "feito").length;
   const progress = Math.round((done / steps.length) * 100);
-
   const overallLevel: "verde" | "amarelo" | "vermelho" =
     criticalRisks > 0 ? "vermelho" : highRisks > 0 || pendingActions > 0 || progress < 70 ? "amarelo" : "verde";
-
   const nextStep = steps.find((step) => step.status !== "feito") ?? steps[steps.length - 1];
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      <aside className="w-64 bg-white border-r border-gray-200 hidden md:flex flex-col print:hidden">
-        <div className="p-6 border-b border-gray-200">
-          <Link to="/dashboard" className="flex items-center gap-2">
-            <div className="h-9 w-9 rounded-lg bg-brand-600 flex items-center justify-center">
-              <Shield className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <span className="block text-lg font-bold">NR1Check</span>
-              <span className="block text-xs text-gray-500">Psicossocial NR-1</span>
-            </div>
-          </Link>
-        </div>
-
-        <nav className="flex-1 p-4 space-y-1">
-          {NAV.map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium ${
-                item.to === "/dashboard" ? "bg-brand-50 text-brand-700" : "text-gray-700 hover:bg-gray-100"
-              }`}
-            >
-              <item.icon className="h-4 w-4" />
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-
-        <div className="p-4 border-t border-gray-200 flex items-center gap-3">
-          <UserButton afterSignOutUrl="/" />
-          <div className="text-sm min-w-0">
-            <p className="font-medium truncate">{user?.firstName ?? "Gestor"}</p>
-            <p className="text-gray-500 text-xs truncate">{user?.primaryEmailAddress?.emailAddress}</p>
-          </div>
-        </div>
-      </aside>
-
-      <main className="flex-1 p-6 lg:p-8">
-        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <p className="inline-flex items-center gap-2 rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">
-              <Sparkles className="h-3.5 w-3.5" />
-              Cockpit do empresário
-            </p>
-            <h1 className="mt-3 text-2xl lg:text-3xl font-bold text-gray-900">
-              O que falta para sua empresa ficar defensável?
-            </h1>
-            {company ? (
-              <p className="mt-2 flex items-center gap-1 text-sm text-gray-500">
-                <Building2 className="h-4 w-4" />
-                {company.name}
-              </p>
-            ) : (
-              <p className="mt-2 text-sm text-gray-500">
-                Configure sua empresa para iniciar o fluxo psicossocial NR-1.
-              </p>
-            )}
-          </div>
-
+    <AppShell>
+      <PageHeader
+        eyebrow="Cockpit do empresário"
+        title="O que falta para sua empresa ficar defensável?"
+        description="Siga a trilha: avaliar, gerar achados, montar inventário, executar plano de ação e guardar evidências assináveis."
+        action={
           <Link to={nextStep.route} className="btn-primary">
             {nextStep.cta} <ArrowRight className="h-4 w-4" />
           </Link>
+        }
+      />
+
+      {loadingCompany ? (
+        <div className="card">
+          <p className="text-gray-500">Carregando...</p>
         </div>
+      ) : !company ? (
+        <EmptyPanel
+          icon={<Building2 className="h-6 w-6" />}
+          title="Nenhuma empresa cadastrada"
+          description="Cadastre sua empresa para iniciar a gestão dos riscos psicossociais da NR-1."
+          action={<Link to="/comecar" className="btn-primary">Configurar empresa →</Link>}
+        />
+      ) : (
+        <div className="space-y-6">
+          <section className={`card border-2 ${overallClass(overallLevel)}`}>
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-wide">Status NR-1 Psicossocial</p>
+                <h2 className="mt-1 text-3xl font-bold">
+                  {overallLevel === "verde" && "Fluxo em boa ordem"}
+                  {overallLevel === "amarelo" && "Atenção: ainda há pendências"}
+                  {overallLevel === "vermelho" && "Prioridade: risco crítico ou pendência relevante"}
+                </h2>
+                <p className="mt-2 max-w-3xl text-sm opacity-90">
+                  A meta é demonstrar gestão ativa: escuta dos trabalhadores, análise agregada, inventário,
+                  plano de ação e evidências organizadas.
+                </p>
+                <p className="mt-3 flex items-center gap-1 text-sm">
+                  <Building2 className="h-4 w-4" />
+                  {company.name}
+                </p>
+              </div>
 
-        {loadingCompany ? (
-          <div className="card">
-            <p className="text-gray-500">Carregando...</p>
-          </div>
-        ) : !company ? (
-          <EmptyState />
-        ) : (
-          <div className="space-y-6">
-            <section className={`card border-2 ${overallClass(overallLevel)}`}>
-              <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <p className="text-sm font-semibold uppercase tracking-wide">Status NR-1 Psicossocial</p>
-                  <h2 className="mt-1 text-3xl font-bold">
-                    {overallLevel === "verde" && "Fluxo em boa ordem"}
-                    {overallLevel === "amarelo" && "Atenção: ainda há pendências"}
-                    {overallLevel === "vermelho" && "Prioridade: risco crítico ou pendência relevante"}
-                  </h2>
-                  <p className="mt-2 max-w-3xl text-sm opacity-90">
-                    O objetivo é provar gestão ativa: a empresa ouviu trabalhadores, analisou fatores psicossociais,
-                    criou inventário, definiu plano de ação e guardou evidências.
-                  </p>
+              <div className="min-w-[220px] rounded-2xl bg-white/60 p-4 text-center">
+                <p className="text-sm font-semibold">Prontidão</p>
+                <p className="mt-2 text-5xl font-bold">{progress}%</p>
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/70">
+                  <div className="h-full rounded-full bg-current" style={{ width: `${progress}%` }} />
                 </div>
+                <p className="mt-2 text-xs opacity-80">{done}/{steps.length} etapas concluídas</p>
+              </div>
+            </div>
+          </section>
 
-                <div className="min-w-[220px] rounded-2xl bg-white/60 p-4 text-center">
-                  <p className="text-sm font-semibold">Prontidão</p>
-                  <p className="mt-2 text-5xl font-bold">{progress}%</p>
-                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/70">
-                    <div className="h-full rounded-full bg-current" style={{ width: `${progress}%` }} />
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <MetricCard label="Trabalhadores" value={employeeCount} helper="base cadastrada" />
+            <MetricCard label="Participação" value={`${responseRate}%`} helper={`${responseCount}/${invitedCount || 0} respostas`} tone={Number(responseCount) >= 3 ? "green" : "yellow"} />
+            <MetricCard label="Achados" value={findingCount} helper="salvos no Supabase" />
+            <MetricCard label="Riscos" value={inventoryCount} helper={`${criticalRisks} crítico(s)`} tone={criticalRisks ? "red" : "gray"} />
+            <MetricCard label="Documentos" value={documentCount} helper="gerados/registrados" />
+          </section>
+
+          <section className="grid gap-6 xl:grid-cols-[1fr_360px]">
+            <div className="card">
+              <h2 className="text-lg font-bold text-gray-900">Fluxo guiado NR1Check</h2>
+              <p className="mt-1 text-sm text-gray-500">A ordem abaixo evita que o empresário fique perdido.</p>
+
+              <div className="mt-5 space-y-3">
+                {steps.map((step) => (
+                  <Link key={step.id} to={step.route} className="block rounded-2xl border border-gray-200 bg-white p-4 hover:shadow-md transition">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="flex gap-3">
+                        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-sm font-bold ${
+                          step.status === "feito" ? "border-green-200 bg-green-50 text-green-700" :
+                          step.status === "em_andamento" ? "border-yellow-200 bg-yellow-50 text-yellow-700" :
+                          "border-gray-200 bg-gray-50 text-gray-600"
+                        }`}>
+                          {step.status === "feito" ? <CheckCircle2 className="h-5 w-5" /> : step.id}
+                        </div>
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="font-semibold text-gray-900">{step.title}</h3>
+                            <StatusBadge tone={stepTone(step.status)}>{stepLabel(step.status)}</StatusBadge>
+                          </div>
+                          <p className="mt-1 text-sm text-gray-600">{step.description}</p>
+                          <p className="mt-2 text-xs text-gray-500">
+                            <strong>Evidência:</strong> {step.evidence}
+                          </p>
+                        </div>
+                      </div>
+
+                      <span className="inline-flex items-center gap-1 text-sm font-semibold text-brand-700">
+                        {step.cta} <ArrowRight className="h-4 w-4" />
+                      </span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            <aside className="space-y-6">
+              <div className="card bg-gray-900 text-white">
+                <div className="flex gap-3">
+                  <PlayCircle className="mt-1 h-5 w-5 text-white/70" />
+                  <div>
+                    <h2 className="font-bold">Próxima melhor ação</h2>
+                    <p className="mt-1 text-sm text-gray-300">{nextStep.description}</p>
+                    <Link to={nextStep.route} className="mt-4 inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-100">
+                      {nextStep.cta} <ArrowRight className="h-4 w-4" />
+                    </Link>
                   </div>
-                  <p className="mt-2 text-xs opacity-80">{done}/{steps.length} etapas concluídas</p>
                 </div>
               </div>
-            </section>
 
-            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-              <MetricCard label="Trabalhadores" value={employeeCount} helper="base cadastrada" />
-              <MetricCard label="Participação" value={`${responseRate}%`} helper={`${responseCount}/${invitedCount || 0} respostas`} />
-              <MetricCard label="Achados" value={findingCount} helper="salvos no Supabase" />
-              <MetricCard label="Riscos" value={inventoryCount} helper={`${criticalRisks} crítico(s)`} tone={criticalRisks ? "red" : "gray"} />
-              <MetricCard label="Documentos" value={documentCount} helper="gerados/registrados" />
-            </section>
-
-            <section className="grid gap-6 xl:grid-cols-[1fr_360px]">
               <div className="card">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <h2 className="text-lg font-bold text-gray-900">Semáforo executivo</h2>
+                <div className="mt-4 space-y-3">
+                  <StatusLine ok={Number(responseCount) >= 3} title="Coleta mínima" detail={Number(responseCount) >= 3 ? "Já há base agregada." : "Colete pelo menos 3 respostas."} />
+                  <StatusLine ok={findingCount > 0} title="Achados" detail={findingCount > 0 ? "Dimensões analisadas." : "Gere achados por dimensão."} />
+                  <StatusLine ok={inventoryCount > 0} title="Inventário" detail={inventoryCount > 0 ? "Riscos formalizados." : "Envie achados ao inventário."} />
+                  <StatusLine ok={pendingActions === 0 && inventoryCount > 0} title="Plano de ação" detail={pendingActions === 0 && inventoryCount > 0 ? "Sem ações pendentes." : `${pendingActions} ação(ões) pendente(s).`} />
+                  <StatusLine ok={documentCount > 0} title="Documentos" detail={documentCount > 0 ? "Evidências documentais geradas." : "Gere documentos assináveis."} />
+                </div>
+              </div>
+
+              <div className="card border-brand-200 bg-brand-50">
+                <div className="flex gap-3">
+                  <Lock className="mt-1 h-5 w-5 text-brand-700" />
                   <div>
-                    <h2 className="text-lg font-bold text-gray-900">Fluxo guiado NR1Check</h2>
-                    <p className="mt-1 text-sm text-gray-500">
-                      Siga a ordem. O app transforma obrigação em tarefa prática.
+                    <h2 className="font-bold text-brand-900">Regra do produto</h2>
+                    <p className="mt-1 text-sm text-brand-800">
+                      Respostas individuais não são mostradas ao empregador. O valor é análise agregada,
+                      plano de ação e evidência.
                     </p>
                   </div>
-                  <Link to="/obrigacoes-nr1" className="btn-secondary text-sm">
-                    Ver obrigações <ArrowRight className="h-4 w-4" />
-                  </Link>
-                </div>
-
-                <div className="mt-5 space-y-3">
-                  {steps.map((step) => (
-                    <Link key={step.id} to={step.route} className="block rounded-2xl border border-gray-200 bg-white p-4 hover:shadow-md transition">
-                      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                        <div className="flex gap-3">
-                          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-sm font-bold ${stepClass(step.status)}`}>
-                            {step.status === "feito" ? <CheckCircle2 className="h-5 w-5" /> : step.id}
-                          </div>
-                          <div>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="font-semibold text-gray-900">{step.title}</h3>
-                              <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${stepClass(step.status)}`}>
-                                {stepLabel(step.status)}
-                              </span>
-                            </div>
-                            <p className="mt-1 text-sm text-gray-600">{step.description}</p>
-                            <p className="mt-2 text-xs text-gray-500">
-                              <strong>Evidência:</strong> {step.evidence}
-                            </p>
-                          </div>
-                        </div>
-
-                        <span className="inline-flex items-center gap-1 text-sm font-semibold text-brand-700">
-                          {step.cta} <ArrowRight className="h-4 w-4" />
-                        </span>
-                      </div>
-                    </Link>
-                  ))}
                 </div>
               </div>
-
-              <aside className="space-y-6">
-                <div className="card bg-gray-900 text-white">
-                  <div className="flex gap-3">
-                    <PlayCircle className="mt-1 h-5 w-5 text-white/70" />
-                    <div>
-                      <h2 className="font-bold">Próxima melhor ação</h2>
-                      <p className="mt-1 text-sm text-gray-300">{nextStep.description}</p>
-                      <Link to={nextStep.route} className="mt-4 inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-100">
-                        {nextStep.cta} <ArrowRight className="h-4 w-4" />
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="card">
-                  <h2 className="text-lg font-bold text-gray-900">Semáforo executivo</h2>
-                  <div className="mt-4 space-y-3">
-                    <StatusLine
-                      ok={responseCount >= 3}
-                      title="Coleta mínima"
-                      detail={responseCount >= 3 ? "Já há base para achados agregados." : "Colete pelo menos 3 respostas."}
-                    />
-                    <StatusLine
-                      ok={findingCount > 0}
-                      title="Achados gerados"
-                      detail={findingCount > 0 ? "Dimensões já foram analisadas." : "Gere achados por dimensão."}
-                    />
-                    <StatusLine
-                      ok={inventoryCount > 0}
-                      title="Inventário"
-                      detail={inventoryCount > 0 ? "Riscos já foram formalizados." : "Envie achados ao inventário."}
-                    />
-                    <StatusLine
-                      ok={pendingActions === 0 && inventoryCount > 0}
-                      title="Plano de ação"
-                      detail={pendingActions === 0 && inventoryCount > 0 ? "Sem ações pendentes." : `${pendingActions} ação(ões) pendente(s).`}
-                    />
-                    <StatusLine
-                      ok={documentCount > 0}
-                      title="Documentos"
-                      detail={documentCount > 0 ? "Já existem evidências documentais." : "Gere documentos assináveis."}
-                    />
-                  </div>
-                </div>
-
-                <div className="card border-brand-200 bg-brand-50">
-                  <div className="flex gap-3">
-                    <Lock className="mt-1 h-5 w-5 text-brand-700" />
-                    <div>
-                      <h2 className="font-bold text-brand-900">Regra do produto</h2>
-                      <p className="mt-1 text-sm text-brand-800">
-                        Respostas individuais não são mostradas ao empregador. O valor do app é gestão agregada,
-                        plano de ação e evidência.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </aside>
-            </section>
-          </div>
-        )}
-      </main>
-    </div>
-  );
-}
-
-function MetricCard({
-  label,
-  value,
-  helper,
-  tone = "gray",
-}: {
-  label: string;
-  value: string | number;
-  helper: string;
-  tone?: "gray" | "red";
-}) {
-  return (
-    <div className="card">
-      <p className="text-sm text-gray-500">{label}</p>
-      <p className={`mt-2 text-2xl font-bold ${tone === "red" ? "text-red-700" : "text-gray-900"}`}>{value}</p>
-      <p className="mt-1 text-xs text-gray-500">{helper}</p>
-    </div>
+            </aside>
+          </section>
+        </div>
+      )}
+    </AppShell>
   );
 }
 
@@ -452,21 +320,6 @@ function StatusLine({ ok, title, detail }: { ok: boolean; title: string; detail:
         <p className="text-sm font-semibold text-gray-900">{title}</p>
         <p className="text-xs text-gray-500">{detail}</p>
       </div>
-    </div>
-  );
-}
-
-function EmptyState() {
-  return (
-    <div className="card text-center py-12">
-      <Building2 className="h-12 w-12 text-gray-400 mx-auto" />
-      <h2 className="mt-4 text-xl font-semibold">Nenhuma empresa cadastrada</h2>
-      <p className="text-gray-500 mt-2">
-        Cadastre sua empresa para iniciar a gestão dos riscos psicossociais da NR-1.
-      </p>
-      <Link to="/comecar" className="btn-primary mt-6">
-        Configurar empresa →
-      </Link>
     </div>
   );
 }
