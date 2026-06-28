@@ -19,7 +19,20 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000
 function TRPCProviderWithClerk() {
   const { getToken, isLoaded } = useAuth();
 
-  const [queryClient] = useState(() => new QueryClient());
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            retry: 1,
+            refetchOnWindowFocus: false,
+          },
+          mutations: {
+            retry: 0,
+          },
+        },
+      }),
+  );
 
   const trpcClient = useMemo(() => {
     return trpc.createClient({
@@ -27,23 +40,26 @@ function TRPCProviderWithClerk() {
         httpBatchLink({
           url: `${API_BASE_URL}/api/trpc`,
           transformer: superjson,
-          async headers() {
-            if (!isLoaded) return {};
 
-            try {
-              const token = await getToken();
+          fetch: async (url, options) => {
+            const headers = new Headers(options?.headers);
 
-              if (!token) {
-                return {};
+            if (isLoaded) {
+              try {
+                const token = await getToken();
+
+                if (token) {
+                  headers.set("authorization", `Bearer ${token}`);
+                }
+              } catch (error) {
+                console.error("Erro ao obter token Clerk para tRPC:", error);
               }
-
-              return {
-                authorization: `Bearer ${token}`,
-              };
-            } catch (error) {
-              console.error("Erro ao obter token do Clerk:", error);
-              return {};
             }
+
+            return fetch(url, {
+              ...options,
+              headers,
+            });
           },
         }),
       ],
