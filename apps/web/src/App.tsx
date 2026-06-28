@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { SignedIn, SignedOut, RedirectToSignIn } from "@clerk/clerk-react";
 import { Toaster } from "react-hot-toast";
@@ -22,8 +23,9 @@ import EmployeeLogin from "./pages/EmployeeLogin";
 import EmployeePortal from "./pages/EmployeePortal";
 import NotFound from "./pages/NotFound";
 import AssessmentFindings from "./pages/AssessmentFindings";
+import DebugAuth from "./pages/DebugAuth";
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+function ProtectedRoute({ children }: { children: ReactNode }) {
   return (
     <>
       <SignedIn>{children}</SignedIn>
@@ -41,18 +43,23 @@ export function App() {
       <Routes>
         <Route path="/" element={<Home />} />
 
-        {/* Clerk precisa de /* para callbacks do Google, verificação e etapas internas */}
         <Route path="/login/*" element={<Login />} />
         <Route path="/cadastro/*" element={<Signup />} />
 
         <Route path="/precos" element={<Pricing />} />
         <Route path="/pagamento/sucesso" element={<PaymentSuccess />} />
         <Route path="/acesso-funcionario" element={<EmployeeLogin />} />
-
-        {/* Resposta pública por link direto, sem depender de WhatsApp ou sessão do funcionário */}
         <Route path="/responder-avaliacao" element={<PublicPsychosocialResponse />} />
 
-        {/* App protegida do gestor */}
+        <Route
+          path="/debug-auth"
+          element={
+            <ProtectedRoute>
+              <DebugAuth />
+            </ProtectedRoute>
+          }
+        />
+
         <Route
           path="/comecar"
           element={
@@ -81,13 +88,13 @@ export function App() {
         />
 
         <Route
-  path="/achados-psicossociais"
-  element={
-    <ProtectedRoute>
-      <AssessmentFindings />
-    </ProtectedRoute>
-  }
-/>
+          path="/achados-psicossociais"
+          element={
+            <ProtectedRoute>
+              <AssessmentFindings />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/avaliacao-psicossocial"
@@ -152,7 +159,6 @@ export function App() {
           }
         />
 
-        {/* Portal do funcionário */}
         <Route path="/portal/*" element={<EmployeePortal />} />
 
         <Route path="*" element={<NotFound />} />
