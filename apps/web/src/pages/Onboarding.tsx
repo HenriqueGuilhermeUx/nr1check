@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Building2, Users, FileCheck, Shield } from "lucide-react";
+import { AlertTriangle, Building2, FileCheck, Loader2, RefreshCcw, Shield, Users } from "lucide-react";
 import toast from "react-hot-toast";
 import { trpc } from "../lib/trpc";
 
@@ -9,6 +9,28 @@ const STEPS = [
   { id: 2, title: "Funcionários", icon: Users },
   { id: 3, title: "Painel", icon: FileCheck },
 ];
+
+function cleanDocument(value: string) {
+  return value.replace(/\D/g, "");
+}
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  return "Não foi possível salvar. Tente novamente.";
+}
+
+function isDuplicateCompanyError(message: string) {
+  const text = message.toLowerCase();
+  return text.includes("já existe") || text.includes("already") || text.includes("duplicate") || text.includes("conflict");
+}
+
+function timeoutAfter(ms: number) {
+  return new Promise<never>((_, reject) => {
+    window.setTimeout(() => {
+      reject(new Error("TIMEOUT_ONBOARDING_COMPANY_CREATE"));
+    }, ms);
+  });
+}
 
 export default function Onboarding() {
   const navigate = useNavigate();
@@ -58,8 +80,8 @@ export default function Onboarding() {
         </ol>
 
         <div className="mt-10 card">
-          {step === 1 && <Step1Company onDone={() => setStep(2)} />}
-          {step === 2 && <Step2Employees onDone={() => setStep(3)} onBack={() => setStep(1)} />}
+          {step === 1 && <Step1Company onDone={() => setStep(2)} onGoDashboard={() => navigate("/dashboard")} />}
+          {step === 2 && <Step2Employees onDone={() => setStep(3)} onBack={() => setStep(1)} onGoDashboard={() => navigate("/dashboard")} />}
           {step === 3 && <Step3Ready onFinish={() => navigate("/dashboard")} />}
         </div>
       </div>
@@ -67,7 +89,10 @@ export default function Onboarding() {
   );
 }
 
-function Step1Company({ onDone }: { onDone: () => void }) {
+function Step1Company({ onDone, onGoDashboard }: { onDone: () => void; onGoDashboard: () => void }) {
+  const utils = trpc.useUtils();
+  const { data: companies, refetch } = trpc.company.my.useQuery();
+
   const [form, setForm] = useState({
     name: "",
     cnpj: "",
@@ -75,32 +100,153 @@ function Step1Company({ onDone }: { onDone: () => void }) {
     cnaeCode: "",
   });
 
-  const create = trpc.company.create.useMutation({
-    onSuccess: () => {
-      toast.success("Empresa cadastrada!");
-      onDone();
-    },
-    onError: (err) => toast.error(err.message),
-  });
+  const [saving, setSaving] = useState(false);
+  const [stuck, setStuck] = useState(false);
+  const [lastError, setLastError] = useState("");
 
-  return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        create.mutate({
-          name: form.name,
-          cnpj: form.cnpj,
-          sector: form.sector || undefined,
-          cnaeCode: form.cnaeCode || undefined,
+  const create = trpc.company.create.useMutation();
+
+  async function checkExistingCompanyAndContinue() {
+    const result = await refetch();
+    const company = result.data?.[0] ?? companies?.[0];
+
+    if (company) {
+      toast.success("Empresa encontrada. Vamos continuar.");
+      onDone();
+      return true;
+    }
+
+    return false;
+  }
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    setLastError("");
+    setStuck(false);
+
+    const cnpj = cleanDocument(form.cnpj);
+
+    if (!form.name.trim()) {
+      toast.error("Informe a razão social.");
+      return;
+    }
+
+    if (cnpj.length !== 14) {
+      toast.error("CNPJ deve ter 14 dígitos.");
+      return;
+    }
+
+    if (companies?.length) {
+      toast.success("Empresa já cadastrada. Vamos continuar.");
+      onDone();
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      await Promise.race([
+        create.mutateAsync({
+          name: form.name.trim(),
+          cnpj,
+          sector: form.sector.trim() || undefined,
+          cnaeCode: form.cnaeCode.trim() || undefined,
           type: "empresa",
           size: "micro",
-        });
-      }}
-    >
+        }),
+        timeoutAfter(12000),
+      ]);
+
+      await utils.company.my.invalidate();
+      toast.success("Empresa cadastrada!");
+      onDone();
+    } catch (error) {
+      const message = getErrorMessage(error);
+
+      if (message === "TIMEOUT_ONBOARDING_COMPANY_CREATE") {
+        setStuck(true);
+        setLastError("A API demorou para responder. A empresa pode ter sido criada, mas o app não recebeu confirmação.");
+        toast.error("A API demorou para responder. Verifique se criou ou tente novamente.");
+        return;
+      }
+
+      if (isDuplicateCompanyError(message)) {
+        await utils.company.my.invalidate();
+        const found = await checkExistingCompanyAndContinue();
+        if (!found) {
+          toast.success("Empresa já existe. Continue pelo dashboard.");
+          onGoDashboard();
+        }
+        return;
+      }
+
+      setLastError(message);
+      toast.error(message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
       <h2 className="text-xl font-bold">Passo 1 — Dados básicos da empresa</h2>
       <p className="text-sm text-gray-500 mt-1">
         Informe o mínimo para criar o painel. CNAE e dados complementares podem ser preenchidos depois.
       </p>
+
+      {companies?.length ? (
+        <div className="mt-5 rounded-xl border border-green-200 bg-green-50 p-4">
+          <div className="flex gap-3">
+            <Shield className="mt-0.5 h-5 w-5 text-green-700" />
+            <div>
+              <p className="font-semibold text-green-900">Empresa já cadastrada</p>
+              <p className="mt-1 text-sm text-green-800">
+                Encontramos {companies[0].name}. Você pode continuar para os trabalhadores ou ir direto ao dashboard.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button type="button" onClick={onDone} className="btn-primary text-sm">
+                  Continuar →
+                </button>
+                <button type="button" onClick={onGoDashboard} className="btn-secondary text-sm">
+                  Ir para dashboard
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {stuck ? (
+        <div className="mt-5 rounded-xl border border-yellow-200 bg-yellow-50 p-4">
+          <div className="flex gap-3">
+            <AlertTriangle className="mt-0.5 h-5 w-5 text-yellow-700" />
+            <div>
+              <p className="font-semibold text-yellow-900">Salvamento demorou demais</p>
+              <p className="mt-1 text-sm text-yellow-800">
+                Isso costuma acontecer quando o backend está acordando ou demorou para responder. A empresa pode ter sido criada.
+              </p>
+              {lastError && <p className="mt-2 text-xs text-yellow-800">{lastError}</p>}
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button type="button" onClick={checkExistingCompanyAndContinue} className="btn-primary text-sm">
+                  Verificar se criou
+                </button>
+                <button type="submit" className="btn-secondary text-sm">
+                  <RefreshCcw className="h-4 w-4" />
+                  Tentar novamente
+                </button>
+                <button type="button" onClick={onGoDashboard} className="btn-secondary text-sm">
+                  Ir para dashboard
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : lastError ? (
+        <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          {lastError}
+        </div>
+      ) : null}
 
       <div className="mt-6 grid gap-4">
         <div>
@@ -151,15 +297,36 @@ function Step1Company({ onDone }: { onDone: () => void }) {
         </div>
       </div>
 
-      <button type="submit" disabled={create.isPending} className="btn-primary mt-6">
-        {create.isPending ? "Salvando..." : "Continuar →"}
-      </button>
+      <div className="mt-6 flex flex-wrap gap-3">
+        <button type="submit" disabled={saving} className="btn-primary">
+          {saving ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Salvando...
+            </>
+          ) : (
+            "Continuar →"
+          )}
+        </button>
+
+        <button type="button" onClick={onGoDashboard} className="btn-secondary">
+          Ir para dashboard
+        </button>
+      </div>
     </form>
   );
 }
 
-function Step2Employees({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
-  const { data: companies } = trpc.company.my.useQuery();
+function Step2Employees({
+  onDone,
+  onBack,
+  onGoDashboard,
+}: {
+  onDone: () => void;
+  onBack: () => void;
+  onGoDashboard: () => void;
+}) {
+  const { data: companies, isLoading } = trpc.company.my.useQuery();
   const companyId = companies?.[0]?.id;
   const [list, setList] = useState([{ name: "", cpf: "", phone: "", role: "" }]);
 
@@ -172,6 +339,42 @@ function Step2Employees({ onDone, onBack }: { onDone: () => void; onBack: () => 
   });
 
   const validEmployees = list.filter((employee) => employee.name && employee.cpf);
+
+  if (isLoading) {
+    return (
+      <div>
+        <h2 className="text-xl font-bold">Passo 2 — Funcionários</h2>
+        <p className="mt-3 text-sm text-gray-500">Carregando empresa...</p>
+      </div>
+    );
+  }
+
+  if (!companyId) {
+    return (
+      <div>
+        <h2 className="text-xl font-bold">Passo 2 — Funcionários</h2>
+        <div className="mt-5 rounded-xl border border-yellow-200 bg-yellow-50 p-4">
+          <div className="flex gap-3">
+            <AlertTriangle className="mt-0.5 h-5 w-5 text-yellow-700" />
+            <div>
+              <p className="font-semibold text-yellow-900">Empresa ainda não encontrada</p>
+              <p className="mt-1 text-sm text-yellow-800">
+                Volte e tente salvar a empresa novamente, ou vá ao dashboard para verificar se ela já foi criada.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button type="button" onClick={onBack} className="btn-primary text-sm">
+                  ← Voltar para empresa
+                </button>
+                <button type="button" onClick={onGoDashboard} className="btn-secondary text-sm">
+                  Ir para dashboard
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -231,11 +434,6 @@ function Step2Employees({ onDone, onBack }: { onDone: () => void; onBack: () => 
               return;
             }
 
-            if (!companyId) {
-              toast.error("Cadastre a empresa antes de adicionar funcionários.");
-              return;
-            }
-
             bulk.mutate(
               validEmployees.map((employee) => ({
                 ...employee,
@@ -264,22 +462,22 @@ function Step3Ready({ onFinish }: { onFinish: () => void }) {
 
       <h2 className="mt-4 text-2xl font-bold text-gray-900">Painel criado!</h2>
       <p className="mt-2 text-gray-600 max-w-xl mx-auto">
-        Agora você pode completar o inventário de riscos, enviar a avaliação psicossocial, registrar evidências
-        e gerar documentos da NR-1 dentro do dashboard.
+        Agora você pode completar a avaliação psicossocial, gerar achados, montar inventário, acompanhar ações
+        e gerar documentos de evidência.
       </p>
 
       <div className="mt-6 grid gap-3 text-left sm:grid-cols-3">
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="font-semibold text-gray-900">Inventário</p>
-          <p className="mt-1 text-sm text-gray-500">Mapeie riscos por setor e função.</p>
-        </div>
         <div className="rounded-xl border border-gray-200 bg-white p-4">
           <p className="font-semibold text-gray-900">Avaliação</p>
           <p className="mt-1 text-sm text-gray-500">Colete respostas dos trabalhadores.</p>
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="font-semibold text-gray-900">PGR</p>
-          <p className="mt-1 text-sm text-gray-500">Gere documentos e plano de ação.</p>
+          <p className="font-semibold text-gray-900">Inventário</p>
+          <p className="mt-1 text-sm text-gray-500">Mapeie riscos e plano de ação.</p>
+        </div>
+        <div className="rounded-xl border border-gray-200 bg-white p-4">
+          <p className="font-semibold text-gray-900">Documentos</p>
+          <p className="mt-1 text-sm text-gray-500">Gere evidências imprimíveis.</p>
         </div>
       </div>
 
