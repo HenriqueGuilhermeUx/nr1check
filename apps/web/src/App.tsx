@@ -10,10 +10,10 @@ import PaymentSuccess from "./pages/PaymentSuccess";
 import Onboarding from "./pages/Onboarding";
 import Dashboard from "./pages/Dashboard";
 import Employees from "./pages/Employees";
-import RiskInventory from "./pages/RiskInventory";
 import Documents from "./pages/Documents";
 import Complaints from "./pages/Complaints";
 import DefensePanel from "./pages/DefensePanel";
+import RiskInventory from "./pages/RiskInventory";
 import EmployeeLogin from "./pages/EmployeeLogin";
 import EmployeePortal from "./pages/EmployeePortal";
 import NotFound from "./pages/NotFound";
@@ -44,7 +44,6 @@ export function App() {
         <Route path="/pagamento/sucesso" element={<PaymentSuccess />} />
         <Route path="/acesso-funcionario" element={<EmployeeLogin />} />
 
-        {/* App protegida do gestor */}
         <Route
           path="/comecar"
           element={
@@ -108,7 +107,6 @@ export function App() {
           }
         />
 
-        {/* Portal do funcionário */}
         <Route path="/portal/*" element={<EmployeePortal />} />
 
         <Route path="*" element={<NotFound />} />
