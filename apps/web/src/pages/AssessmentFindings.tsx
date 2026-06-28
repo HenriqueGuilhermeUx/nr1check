@@ -343,7 +343,15 @@ export default function AssessmentFindings() {
   );
 }
 
-function MetricCard({ label, value, helper }: { label: string; value: string }) {
+function MetricCard({
+  label,
+  value,
+  helper,
+}: {
+  label: string;
+  value: string;
+  helper: string;
+}) {
   return (
     <div className="card">
       <p className="text-sm text-gray-500">{label}</p>
