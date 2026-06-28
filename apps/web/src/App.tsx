@@ -10,6 +10,7 @@ import PaymentSuccess from "./pages/PaymentSuccess";
 import Onboarding from "./pages/Onboarding";
 import Dashboard from "./pages/Dashboard";
 import Employees from "./pages/Employees";
+import RiskInventory from "./pages/RiskInventory";
 import Documents from "./pages/Documents";
 import Complaints from "./pages/Complaints";
 import DefensePanel from "./pages/DefensePanel";
@@ -67,6 +68,15 @@ export function App() {
           element={
             <ProtectedRoute>
               <Employees />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/inventario-riscos"
+          element={
+            <ProtectedRoute>
+              <RiskInventory />
             </ProtectedRoute>
           }
         />
