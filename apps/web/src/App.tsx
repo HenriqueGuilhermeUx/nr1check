@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { SignedIn, SignedOut, RedirectToSignIn } from "@clerk/clerk-react";
 import { Toaster } from "react-hot-toast";
 
@@ -34,21 +34,71 @@ export function App() {
       <Toaster position="top-right" />
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/cadastro" element={<Signup />} />
+
+        {/* Clerk precisa de /* para callbacks do Google, verificação e etapas internas */}
+        <Route path="/login/*" element={<Login />} />
+        <Route path="/cadastro/*" element={<Signup />} />
+
         <Route path="/precos" element={<Pricing />} />
         <Route path="/pagamento/sucesso" element={<PaymentSuccess />} />
         <Route path="/acesso-funcionario" element={<EmployeeLogin />} />
 
-        {/* App protegida (gestor) */}
-        <Route path="/comecar" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
-        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="/funcionarios" element={<ProtectedRoute><Employees /></ProtectedRoute>} />
-        <Route path="/documentos" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
-        <Route path="/denuncias" element={<ProtectedRoute><Complaints /></ProtectedRoute>} />
-        <Route path="/painel-defesa" element={<ProtectedRoute><DefensePanel /></ProtectedRoute>} />
+        {/* App protegida do gestor */}
+        <Route
+          path="/comecar"
+          element={
+            <ProtectedRoute>
+              <Onboarding />
+            </ProtectedRoute>
+          }
+        />
 
-        {/* Portal do funcionário (autenticação própria) */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/funcionarios"
+          element={
+            <ProtectedRoute>
+              <Employees />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/documentos"
+          element={
+            <ProtectedRoute>
+              <Documents />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/denuncias"
+          element={
+            <ProtectedRoute>
+              <Complaints />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/painel-defesa"
+          element={
+            <ProtectedRoute>
+              <DefensePanel />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Portal do funcionário */}
         <Route path="/portal/*" element={<EmployeePortal />} />
 
         <Route path="*" element={<NotFound />} />
