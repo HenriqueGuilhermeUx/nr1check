@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: starter
     rootDir: apps/api
-    buildCommand: pnpm install --no-frozen-lockfile && pnpm --filter @nr1check/api build
+    buildCommand: pnpm install --no-frozen-lockfile --prod=false && pnpm --filter @nr1check/api build
     startCommand: pnpm --filter @nr1check/api start
     healthCheckPath: /health
     envVars:
