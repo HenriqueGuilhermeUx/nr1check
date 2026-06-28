@@ -3,11 +3,10 @@ import { useUser, UserButton } from "@clerk/clerk-react";
 import {
   Activity,
   AlertTriangle,
+  BarChart3,
   Building2,
-  CheckCircle2,
-  ClipboardCheck,
+  ClipboardList,
   FileText,
-  ListChecks,
   MessageSquare,
   Shield,
   Users,
@@ -17,61 +16,16 @@ import { trpc } from "../lib/trpc";
 const NAV = [
   { to: "/dashboard", label: "Visão geral", icon: Activity },
   { to: "/funcionarios", label: "Funcionários", icon: Users },
-  { to: "/documentos", label: "Documentos", icon: FileText },
+  { to: "/inventario-riscos", label: "Riscos psicossociais", icon: ClipboardList },
   { to: "/denuncias", label: "Relatos", icon: MessageSquare },
-  { to: "/painel-defesa", label: "Painel de Defesa", icon: Shield },
-];
-
-const ACTIONS = [
-  {
-    title: "Cadastrar funcionários",
-    description: "Adicione trabalhadores para liberar avaliação, relatos e histórico da empresa.",
-    to: "/funcionarios",
-    icon: Users,
-    tag: "Base do sistema",
-  },
-  {
-    title: "Avaliação psicossocial",
-    description: "Envie a pesquisa e acompanhe riscos psicossociais de forma agregada, sem diagnóstico individual.",
-    to: "/painel-defesa",
-    icon: ClipboardCheck,
-    tag: "NR-1",
-  },
-  {
-    title: "Inventário de riscos",
-    description: "Organize riscos físicos, químicos, biológicos, ergonômicos, acidentes e psicossociais.",
-    to: "/documentos",
-    icon: ListChecks,
-    tag: "GRO/PGR",
-  },
-  {
-    title: "Plano de ação e PGR",
-    description: "Gere documentos, registre medidas, responsáveis, prazos e evidências.",
-    to: "/documentos",
-    icon: FileText,
-    tag: "Documentos",
-  },
-  {
-    title: "Relatos e ocorrências",
-    description: "Centralize relatos, denúncias, incidentes e situações que exigem acompanhamento.",
-    to: "/denuncias",
-    icon: MessageSquare,
-    tag: "Evidências",
-  },
-  {
-    title: "Painel de Defesa",
-    description: "Veja o status geral de conformidade e os próximos pontos de atenção.",
-    to: "/painel-defesa",
-    icon: Shield,
-    tag: "Gestão",
-  },
+  { to: "/documentos", label: "Evidências / PGR", icon: FileText },
+  { to: "/painel-defesa", label: "Painel de gestão", icon: Shield },
 ];
 
 export default function Dashboard() {
   const { user } = useUser();
   const { data: companies, isLoading } = trpc.company.my.useQuery();
-  const company = companies?.[0];
-  const companyId = company?.id;
+  const companyId = companies?.[0]?.id;
 
   const { data: defense } = trpc.compliance.defensePanel.useQuery(
     { companyId: companyId! },
@@ -95,7 +49,9 @@ export default function Dashboard() {
             <Link
               key={item.to}
               to={item.to}
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium ${
+                item.to === "/dashboard" ? "bg-brand-50 text-brand-700" : "text-gray-700 hover:bg-gray-100"
+              }`}
             >
               <item.icon className="h-4 w-4" />
               {item.label}
@@ -106,42 +62,43 @@ export default function Dashboard() {
         <div className="p-4 border-t border-gray-200 flex items-center gap-3">
           <UserButton afterSignOutUrl="/" />
           <div className="text-sm min-w-0">
-            <p className="font-medium truncate">{user?.firstName || "Gestor"}</p>
+            <p className="font-medium truncate">{user?.firstName ?? "Gestor"}</p>
             <p className="text-gray-500 text-xs truncate">{user?.primaryEmailAddress?.emailAddress}</p>
           </div>
         </div>
       </aside>
 
-      <main className="flex-1 p-5 md:p-8">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
+      <main className="flex-1 p-6 lg:p-8">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Olá, {user?.firstName || "gestor"} 👋</h1>
-            {company ? (
+            <p className="text-sm font-semibold text-brand-700">NR-1 · Riscos psicossociais</p>
+            <h1 className="mt-1 text-2xl font-bold">Olá, {user?.firstName ?? "gestor"} 👋</h1>
+            {companies?.[0] ? (
               <p className="text-sm text-gray-500 flex items-center gap-1 mt-1">
                 <Building2 className="h-4 w-4" />
-                {company.name}
+                {companies[0].name}
               </p>
             ) : (
-              <p className="text-sm text-gray-500 mt-1">Configure sua empresa para começar o painel NR-1.</p>
+              <p className="text-sm text-gray-500 mt-1">
+                Configure sua empresa para começar a gestão psicossocial.
+              </p>
             )}
           </div>
 
-          {company && (
-            <Link to="/painel-defesa" className="btn-primary w-full md:w-auto text-center">
-              Ver status NR-1
-            </Link>
-          )}
+          <Link to="/inventario-riscos" className="btn-primary">
+            Mapear riscos psicossociais →
+          </Link>
         </div>
 
         {isLoading ? (
           <p className="text-gray-500">Carregando...</p>
-        ) : !company ? (
+        ) : !companies?.length ? (
           <EmptyState />
         ) : (
-          <div className="space-y-8">
-            <DefenseSummary defense={defense} />
-            <QuickActions />
-            <NextSteps />
+          <div className="space-y-6">
+            <PsychosocialHero defense={defense} />
+            <NextActions />
+            <ComplianceFlow />
           </div>
         )}
       </main>
@@ -149,79 +106,78 @@ export default function Dashboard() {
   );
 }
 
-function DefenseSummary({ defense }: { defense: any }) {
-  if (!defense) {
-    return (
-      <div className="card border-2 border-yellow-200 bg-yellow-50">
-        <div className="flex items-start gap-4">
-          <AlertTriangle className="h-7 w-7 text-yellow-600" />
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-yellow-700">Status em preparação</p>
-            <h2 className="text-2xl font-bold text-yellow-800 mt-1">Complete os primeiros dados</h2>
-            <p className="text-sm text-yellow-700 mt-1">
-              Cadastre funcionários e documentos iniciais para calcular o status da empresa.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+function PsychosocialHero({ defense }: { defense: any }) {
+  const status = defense?.overallStatus ?? "yellow";
+  const score = typeof defense?.score === "number" ? defense.score : null;
 
   const colorMap = {
-    green: "bg-green-50 border-green-200 text-green-700",
-    yellow: "bg-yellow-50 border-yellow-200 text-yellow-700",
-    red: "bg-red-50 border-red-200 text-red-700",
+    green: "bg-green-50 border-green-200 text-green-800",
+    yellow: "bg-yellow-50 border-yellow-200 text-yellow-800",
+    red: "bg-red-50 border-red-200 text-red-800",
   };
 
   const labelMap = {
-    green: "Protegido",
-    yellow: "Atenção",
-    red: "Em risco",
+    green: "Rotina em acompanhamento",
+    yellow: "Atenção necessária",
+    red: "Ações urgentes",
   };
 
-  const status = defense.overallStatus as keyof typeof colorMap;
-
   return (
-    <div className={`card border-2 ${colorMap[status] || colorMap.yellow}`}>
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    <section className={`card border-2 ${colorMap[status as keyof typeof colorMap] ?? colorMap.yellow}`}>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wide">Status NR-1</p>
-          <h2 className="text-3xl font-bold mt-1">{labelMap[status] || "Atenção"}</h2>
-          <p className="text-sm mt-1 opacity-80">Score atual: {defense.score ?? 0}/100</p>
+          <p className="text-sm font-semibold uppercase tracking-wide">Status psicossocial NR-1</p>
+          <h2 className="mt-1 text-3xl font-bold">{labelMap[status as keyof typeof labelMap] ?? labelMap.yellow}</h2>
+          <p className="mt-2 max-w-2xl text-sm opacity-90">
+            O objetivo é demonstrar gestão ativa: ouvir trabalhadores, identificar fatores psicossociais, criar ações,
+            acompanhar prazos e guardar evidências para o GRO/PGR.
+          </p>
+          {score !== null && <p className="mt-2 text-sm font-medium">Score atual: {score}/100</p>}
         </div>
+
         <Shield className="h-16 w-16 opacity-30" />
       </div>
-    </div>
+    </section>
   );
 }
 
-function QuickActions() {
+function NextActions() {
+  const cards = [
+    {
+      title: "1. Mapear fatores psicossociais",
+      description: "Cadastre riscos como sobrecarga, metas excessivas, assédio, conflitos, baixa autonomia e falhas de liderança.",
+      to: "/inventario-riscos",
+      icon: ClipboardList,
+      cta: "Abrir inventário",
+    },
+    {
+      title: "2. Registrar relatos e sinais",
+      description: "Centralize ocorrências, relatos sensíveis e situações que indiquem necessidade de ação preventiva.",
+      to: "/denuncias",
+      icon: MessageSquare,
+      cta: "Ver relatos",
+    },
+    {
+      title: "3. Organizar evidências",
+      description: "Guarde documentos, atas, comunicações, treinamentos, registros de ação e revisões para apoiar o PGR.",
+      to: "/documentos",
+      icon: FileText,
+      cta: "Ver evidências",
+    },
+  ];
+
   return (
     <section>
-      <div className="flex items-end justify-between gap-4 mb-4">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900">Próximas ações</h2>
-          <p className="text-sm text-gray-500">Escolha uma etapa para avançar na rotina NR-1.</p>
-        </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {ACTIONS.map((action) => (
-          <Link
-            key={action.title}
-            to={action.to}
-            className="card hover:shadow-md transition-shadow border border-gray-100"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div className="h-11 w-11 rounded-xl bg-brand-50 text-brand-700 flex items-center justify-center">
-                <action.icon className="h-5 w-5" />
-              </div>
-              <span className="rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
-                {action.tag}
-              </span>
+      <h3 className="mb-3 text-lg font-semibold text-gray-900">Próximas ações</h3>
+      <div className="grid gap-4 lg:grid-cols-3">
+        {cards.map((card) => (
+          <Link key={card.title} to={card.to} className="card hover:shadow-md transition">
+            <div className="h-10 w-10 rounded-lg bg-brand-100 text-brand-700 flex items-center justify-center">
+              <card.icon className="h-5 w-5" />
             </div>
-            <h3 className="mt-4 font-semibold text-gray-900">{action.title}</h3>
-            <p className="mt-2 text-sm text-gray-500">{action.description}</p>
+            <h4 className="mt-4 font-semibold text-gray-900">{card.title}</h4>
+            <p className="mt-2 text-sm text-gray-500">{card.description}</p>
+            <p className="mt-4 text-sm font-semibold text-brand-700">{card.cta} →</p>
           </Link>
         ))}
       </div>
@@ -229,30 +185,47 @@ function QuickActions() {
   );
 }
 
-function NextSteps() {
-  const steps = [
-    "Cadastrar ou revisar funcionários",
-    "Registrar riscos por setor e função",
-    "Enviar avaliação psicossocial",
-    "Criar plano de ação com responsáveis e prazos",
-    "Guardar evidências e ocorrências importantes",
+function ComplianceFlow() {
+  const items = [
+    {
+      icon: Users,
+      title: "Trabalhadores e setores",
+      detail: "Base para entender quem está exposto aos fatores psicossociais.",
+    },
+    {
+      icon: BarChart3,
+      title: "Avaliação / escuta",
+      detail: "Coleta sinais organizacionais sem diagnóstico médico individual.",
+    },
+    {
+      icon: AlertTriangle,
+      title: "Riscos psicossociais",
+      detail: "Classificação por probabilidade, severidade e prioridade.",
+    },
+    {
+      icon: Activity,
+      title: "Plano de ação",
+      detail: "Responsável, prazo, medida, monitoramento e evidência.",
+    },
   ];
 
   return (
     <section className="card">
-      <h2 className="text-lg font-semibold text-gray-900">Checklist rápido de implantação</h2>
-      <p className="text-sm text-gray-500 mt-1">
-        Use esta lista para deixar a empresa pronta para uma primeira revisão de conformidade.
+      <h3 className="text-lg font-semibold text-gray-900">Fluxo do NR1Check</h3>
+      <p className="mt-1 text-sm text-gray-500">
+        A plataforma é focada no ciclo psicossocial da NR-1. Outros riscos de SST podem existir na empresa,
+        mas não são o escopo principal do NR1Check.
       </p>
 
-      <ul className="mt-5 grid gap-3 md:grid-cols-2">
-        {steps.map((step) => (
-          <li key={step} className="flex items-start gap-3 text-sm text-gray-700">
-            <CheckCircle2 className="mt-0.5 h-4 w-4 text-green-600" />
-            <span>{step}</span>
-          </li>
+      <div className="mt-5 grid gap-4 md:grid-cols-4">
+        {items.map((item) => (
+          <div key={item.title} className="rounded-xl border border-gray-200 bg-white p-4">
+            <item.icon className="h-5 w-5 text-brand-600" />
+            <p className="mt-3 font-semibold text-gray-900">{item.title}</p>
+            <p className="mt-1 text-xs text-gray-500">{item.detail}</p>
+          </div>
         ))}
-      </ul>
+      </div>
     </section>
   );
 }
@@ -262,7 +235,9 @@ function EmptyState() {
     <div className="card text-center py-12">
       <Building2 className="h-12 w-12 text-gray-400 mx-auto" />
       <h2 className="mt-4 text-xl font-semibold">Nenhuma empresa cadastrada</h2>
-      <p className="text-gray-500 mt-2">Crie sua empresa para liberar o painel NR-1.</p>
+      <p className="text-gray-500 mt-2">
+        Cadastre sua empresa para iniciar a gestão dos riscos psicossociais da NR-1.
+      </p>
       <Link to="/comecar" className="btn-primary mt-6">
         Configurar empresa →
       </Link>
