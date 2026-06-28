@@ -8,6 +8,7 @@ import {
   Building2,
   CheckCircle2,
   ClipboardList,
+  FileCheck,
   FileText,
   Lock,
   MessageSquare,
@@ -35,6 +36,7 @@ const NAV = [
   { to: "/funcionarios", label: "Funcionários", icon: Users },
   { to: "/avaliacao-psicossocial", label: "Avaliação", icon: BarChart3 },
   { to: "/inventario-riscos", label: "Inventário + Plano", icon: FileText },
+  { to: "/documentos-assinaturas", label: "Documentos", icon: FileCheck },
   { to: "/denuncias", label: "Relatos", icon: MessageSquare },
   { to: "/painel-defesa", label: "Painel de Defesa", icon: Shield },
 ];
@@ -44,16 +46,16 @@ const PHASES: Phase[] = [
     id: 1,
     title: "Mapa de Obrigações NR-1 Psicossocial",
     description: "Centralizar o que a empresa precisa fazer: escuta, análise, inventário, plano de ação, evidências e revisão.",
-    status: "em_andamento",
+    status: "feito",
     route: "/obrigacoes-nr1",
-    button: "Ver esta fase",
+    button: "Ver fase",
     evidence: "Checklist de obrigações e trilha de implantação.",
   },
   {
     id: 2,
     title: "Avaliação Psicossocial Base",
     description: "Disponibilizar questionário aos trabalhadores, com linguagem simples, confidencialidade e coleta por ciclo.",
-    status: "proximo",
+    status: "feito",
     route: "/avaliacao-psicossocial",
     button: "Abrir avaliação",
     evidence: "Ciclo criado, perguntas ativas, convidados e respostas registradas.",
@@ -61,17 +63,17 @@ const PHASES: Phase[] = [
   {
     id: 3,
     title: "Coleta sem depender de WhatsApp",
-    description: "Permitir resposta por link, QR Code, intranet, comunicado interno, e-mail, SMS manual ou WhatsApp quando disponível.",
-    status: "pendente",
+    description: "Permitir resposta por link individual, QR Code, intranet, comunicado interno, e-mail, SMS manual ou WhatsApp quando disponível.",
+    status: "feito",
     route: "/avaliacao-psicossocial",
-    button: "Gerenciar links",
-    evidence: "Links individuais, protocolo de comunicação e registro de distribuição.",
+    button: "Gerenciar coleta",
+    evidence: "Links individuais, QR, comunicado e registro de distribuição.",
   },
   {
     id: 4,
     title: "Achados Agregados por Dimensão",
     description: "Transformar respostas em achados por dimensão: carga, ritmo, autonomia, liderança, apoio, insegurança e bem-estar.",
-    status: "pendente",
+    status: "proximo",
     route: "/avaliacao-psicossocial",
     button: "Ver achados",
     evidence: "Resultado agregado, sem exposição individual do trabalhador.",
@@ -107,9 +109,9 @@ const PHASES: Phase[] = [
     id: 8,
     title: "Dossiê de Evidências",
     description: "Gerar pacote de evidências para demonstrar que a empresa avaliou, analisou, agiu e revisou.",
-    status: "pendente",
-    route: "/documentos",
-    button: "Gerar evidências",
+    status: "em_andamento",
+    route: "/documentos-assinaturas",
+    button: "Gerar documentos",
     evidence: "PDF com ciclo, participação, achados, ações, relatos e revisões.",
   },
   {
@@ -117,7 +119,7 @@ const PHASES: Phase[] = [
     title: "Seção Psicossocial do PGR",
     description: "Gerar uma seção psicossocial para anexar ao PGR, sem prometer substituir responsável técnico.",
     status: "pendente",
-    route: "/documentos",
+    route: "/documentos-assinaturas",
     button: "Gerar seção PGR",
     evidence: "Metodologia, riscos identificados, plano de ação e próxima revisão.",
   },
@@ -222,7 +224,7 @@ export default function NR1Obligations() {
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">
               <Shield className="h-3.5 w-3.5" />
-              Fase 1 do roadmap
+              Roadmap oficial NR1Check
             </div>
             <h1 className="mt-3 text-2xl lg:text-3xl font-bold text-gray-900">
               Obrigações NR-1 Psicossocial
@@ -288,8 +290,8 @@ export default function NR1Obligations() {
                   Vamos seguir essas 10 fases, uma por uma, até o produto ficar completo.
                 </p>
               </div>
-              <Link to="/avaliacao-psicossocial" className="btn-primary hidden sm:inline-flex">
-                Próxima fase <ArrowRight className="h-4 w-4" />
+              <Link to="/documentos-assinaturas" className="btn-primary hidden sm:inline-flex">
+                Documentos <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
 
@@ -362,10 +364,10 @@ export default function NR1Obligations() {
             <div className="card">
               <h2 className="text-lg font-bold text-gray-900">Canais de resposta</h2>
               <p className="mt-1 text-sm text-gray-500">
-                O app não deve depender só de WhatsApp. Vamos suportar formas simples e auditáveis.
+                O app não depende só de WhatsApp. Suporta formas simples e auditáveis.
               </p>
               <div className="mt-4 grid gap-2">
-                {["Link individual", "QR Code por setor", "E-mail", "Intranet", "Comunicado interno", "WhatsApp/Z-API opcional"].map((channel) => (
+                {["Link individual", "QR Code individual", "E-mail", "Intranet", "Comunicado interno", "WhatsApp/Z-API opcional"].map((channel) => (
                   <div key={channel} className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700">
                     <Send className="h-4 w-4 text-gray-400" />
                     {channel}
@@ -374,21 +376,6 @@ export default function NR1Obligations() {
               </div>
             </div>
           </aside>
-        </section>
-
-        <section className="mt-6 card bg-gray-900 text-white">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <h2 className="text-xl font-bold">Próxima entrega: Fase 2</h2>
-              <p className="mt-1 text-sm text-gray-300">
-                Melhorar a Avaliação Psicossocial para mostrar perguntas disponíveis, links por funcionário,
-                QR/canais de coleta e achados automáticos.
-              </p>
-            </div>
-            <Link to="/avaliacao-psicossocial" className="inline-flex items-center justify-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-100">
-              Abrir Avaliação <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
         </section>
       </main>
     </div>
