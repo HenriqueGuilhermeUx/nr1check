@@ -1,9 +1,20 @@
 import { Link } from "react-router-dom";
-import { useUser, SignInButton, SignUpButton } from "@clerk/clerk-react";
-import { BarChart3, Check, ClipboardList, FileCheck, Lock, MessageSquare, Shield, Users, Zap } from "lucide-react";
+import { useUser, SignInButton, SignUpButton, UserButton } from "@clerk/clerk-react";
+import {
+  BarChart3,
+  Check,
+  ClipboardList,
+  FileCheck,
+  Lock,
+  LogOut,
+  MessageSquare,
+  Shield,
+  Users,
+  Zap,
+} from "lucide-react";
 
 export default function Home() {
-  const { isSignedIn } = useUser();
+  const { isSignedIn, user } = useUser();
 
   return (
     <div className="min-h-screen bg-white">
@@ -24,15 +35,24 @@ export default function Home() {
 
           <div className="flex items-center gap-3">
             {isSignedIn ? (
-              <Link to="/dashboard" className="btn-primary">Dashboard</Link>
+              <>
+                <div className="hidden lg:block text-right">
+                  <p className="text-xs text-gray-400">Logado como</p>
+                  <p className="max-w-[190px] truncate text-xs font-semibold text-gray-700">
+                    {user?.primaryEmailAddress?.emailAddress}
+                  </p>
+                </div>
+                <UserButton afterSignOutUrl="/" />
+                <Link to="/dashboard" className="btn-primary">Dashboard</Link>
+                <Link to="/trocar-conta" className="hidden sm:inline-flex btn-secondary text-sm">
+                  <LogOut className="h-4 w-4" />
+                  Trocar conta
+                </Link>
+              </>
             ) : (
               <>
-                <SignInButton mode="modal">
-                  <button className="text-sm font-medium text-gray-700 hover:text-gray-900">Entrar</button>
-                </SignInButton>
-                <SignUpButton mode="modal">
-                  <button className="btn-primary">Começar</button>
-                </SignUpButton>
+                <Link to="/login" className="text-sm font-medium text-gray-700 hover:text-gray-900">Entrar</Link>
+                <Link to="/cadastro" className="btn-primary">Começar</Link>
               </>
             )}
           </div>
@@ -54,20 +74,40 @@ export default function Home() {
               Mapeie fatores psicossociais do trabalho, registre evidências, crie plano de ação e organize a seção psicossocial do PGR sem transformar isso em burocracia.
             </p>
 
+            {isSignedIn ? (
+              <div className="mt-6 rounded-2xl border border-brand-200 bg-white p-4 shadow-sm">
+                <p className="text-sm font-semibold text-gray-900">
+                  Sessão ativa: {user?.primaryEmailAddress?.emailAddress}
+                </p>
+                <p className="mt-1 text-xs text-gray-500">
+                  Para usar outra conta, clique em “Trocar conta”.
+                </p>
+              </div>
+            ) : null}
+
             <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
               {isSignedIn ? (
-                <Link to="/comecar" className="btn-primary text-base px-6 py-3">
-                  Configurar minha empresa →
-                </Link>
+                <>
+                  <Link to="/dashboard" className="btn-primary text-base px-6 py-3">
+                    Ir para dashboard →
+                  </Link>
+                  <Link to="/comecar" className="btn-secondary text-base px-6 py-3">
+                    Configurar empresa
+                  </Link>
+                  <Link to="/trocar-conta" className="btn-secondary text-base px-6 py-3">
+                    Trocar conta
+                  </Link>
+                </>
               ) : (
-                <SignUpButton mode="modal">
-                  <button className="btn-primary text-base px-6 py-3">Começar agora →</button>
-                </SignUpButton>
+                <>
+                  <Link to="/login" className="btn-secondary text-base px-6 py-3">
+                    Entrar
+                  </Link>
+                  <Link to="/cadastro" className="btn-primary text-base px-6 py-3">
+                    Começar agora →
+                  </Link>
+                </>
               )}
-
-              <Link to="/precos" className="btn-secondary text-base px-6 py-3">
-                Ver planos
-              </Link>
             </div>
 
             <p className="mt-4 text-xs text-gray-500">
@@ -133,10 +173,10 @@ export default function Home() {
             <div className="mt-6">
               {isSignedIn ? (
                 <Link
-                  to="/comecar"
+                  to="/dashboard"
                   className="inline-flex items-center gap-2 rounded-lg bg-white px-6 py-3 text-base font-semibold text-brand-700 hover:bg-brand-50"
                 >
-                  Configurar agora →
+                  Ir para dashboard →
                 </Link>
               ) : (
                 <SignUpButton mode="modal">
