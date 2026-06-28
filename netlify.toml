@@ -1,0 +1,28 @@
+[build]
+  command = "pnpm install --no-frozen-lockfile && pnpm --filter @nr1check/web build"
+  publish = "apps/web/dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+  PNPM_VERSION = "9.12.0"
+
+# SPA fallback — todas as rotas vão para o index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Cache para assets
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Security headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "geolocation=(), microphone=(), camera=()"
