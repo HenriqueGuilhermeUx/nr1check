@@ -17,6 +17,7 @@ import EmployeeLogin from "./pages/EmployeeLogin";
 import EmployeePortal from "./pages/EmployeePortal";
 import RiskInventory from "./pages/RiskInventory";
 import PsychosocialAssessment from "./pages/PsychosocialAssessment";
+import PublicPsychosocialResponse from "./pages/PublicPsychosocialResponse";
 import NotFound from "./pages/NotFound";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -45,6 +46,10 @@ export function App() {
         <Route path="/pagamento/sucesso" element={<PaymentSuccess />} />
         <Route path="/acesso-funcionario" element={<EmployeeLogin />} />
 
+        {/* Rota pública para resposta sem WhatsApp/Z-API */}
+        <Route path="/responder-avaliacao" element={<PublicPsychosocialResponse />} />
+
+        {/* App protegida do gestor */}
         <Route
           path="/comecar"
           element={
@@ -117,7 +122,7 @@ export function App() {
           }
         />
 
-        {/* Portal do funcionário */}
+        {/* Portal do funcionário com login interno */}
         <Route path="/portal/*" element={<EmployeePortal />} />
 
         <Route path="*" element={<NotFound />} />
