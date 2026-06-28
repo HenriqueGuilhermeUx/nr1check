@@ -90,7 +90,9 @@ function Step1Company({ onDone }: { onDone: () => void }) {
       }}
     >
       <h2 className="text-xl font-bold">Passo 1 — Sua empresa</h2>
-      <p className="text-sm text-gray-500 mt-1">Usamos o CNAE para identificar automaticamente os riscos do seu setor.</p>
+      <p className="text-sm text-gray-500 mt-1">
+  Informe os dados básicos da empresa. Se não souber o CNAE agora, tudo bem.
+</p>
       <div className="mt-6 grid gap-4">
         <div>
           <label className="label">Razão social *</label>
@@ -105,8 +107,13 @@ function Step1Company({ onDone }: { onDone: () => void }) {
           <input className="input" value={form.sector} onChange={(e) => setForm({ ...form, sector: e.target.value })} placeholder="Ex: Comércio varejista" />
         </div>
         <div>
-          <label className="label">CNAE principal</label>
-          <input className="input" value={form.cnaeCode} onChange={(e) => setForm({ ...form, cnaeCode: e.target.value })} placeholder="0000-0/00" />
+          <label className="label">CNAE principal <span className="text-gray-400">(opcional)</span></label>
+<input
+  className="input"
+  value={form.cnaeCode}
+  onChange={(e) => setForm({ ...form, cnaeCode: e.target.value })}
+  placeholder="Se souber, informe. Se não, deixe em branco."
+/>
         </div>
       </div>
       <button type="submit" disabled={create.isPending} className="btn-primary mt-6">
