@@ -4,20 +4,36 @@ services:
     runtime: node
     plan: starter
     rootDir: apps/api
-    buildCommand: pnpm install --filter @nr1check/api... --frozen-lockfile && pnpm --filter @nr1check/api build
+    buildCommand: pnpm install --no-frozen-lockfile && pnpm --filter @nr1check/api build
     startCommand: pnpm --filter @nr1check/api start
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_VERSION
+        value: 22
       - key: DATABASE_URL
         sync: false
+      - key: APP_BASE_URL
+        value: https://nr1check.com.br
+      - key: OPENAI_MODEL
+        value: gpt-4o-mini
+
+      # Temporário enquanto removemos Clerk do código
       - key: CLERK_SECRET_KEY
         sync: false
       - key: CLERK_PUBLISHABLE_KEY
         sync: false
       - key: CLERK_WEBHOOK_SECRET
         sync: false
+
+      # Temporário enquanto removemos Stripe e migramos para Woovi Pix
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+
+      # Temporário enquanto removemos R2 obrigatório
       - key: R2_ACCOUNT_ID
         sync: false
       - key: R2_ACCESS_KEY_ID
@@ -30,9 +46,9 @@ services:
         sync: false
       - key: R2_ENDPOINT
         sync: false
-      - key: STRIPE_SECRET_KEY
-        sync: false
-      - key: STRIPE_WEBHOOK_SECRET
+
+      # Opcional
+      - key: OPENAI_API_KEY
         sync: false
       - key: ZAPI_INSTANCE_ID
         sync: false
@@ -40,9 +56,3 @@ services:
         sync: false
       - key: ZAPI_CLIENT_TOKEN
         sync: false
-      - key: OPENAI_API_KEY
-        sync: false
-      - key: OPENAI_MODEL
-        value: gpt-4o-mini
-      - key: APP_BASE_URL
-        value: https://nr1check.com.br
