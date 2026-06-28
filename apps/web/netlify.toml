@@ -1,19 +1,18 @@
 [build]
-  base = "apps/web"
-  publish = "dist"
-  command = "pnpm build"
+  command = "pnpm install --no-frozen-lockfile && pnpm --filter @nr1check/web build"
+  publish = "apps/web/dist"
 
 [build.environment]
-  NODE_VERSION = "20"
-  PNPM_VERSION = "9"
+  NODE_VERSION = "22"
+  PNPM_VERSION = "9.12.0"
 
-# SPA fallback — todas as rotas vão pro index.html
+# SPA fallback — todas as rotas vão para o index.html
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
 
-# Cache agressivo para assets
+# Cache para assets
 [[headers]]
   for = "/assets/*"
   [headers.values]
