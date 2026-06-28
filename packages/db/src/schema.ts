@@ -694,6 +694,181 @@ export const pgrReviews = pgTable(
 );
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// PSYCHOSOCIAL PERSISTENCE — Achados, inventário, documentos, assinaturas
+// Cole este bloco em packages/db/src/schema.ts ANTES do bloco "RELATIONS"
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export const psychosocialFindings = pgTable(
+  "psychosocial_findings",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    cycleId: integer("cycle_id")
+      .notNull()
+      .references(() => assessmentCycles.id, { onDelete: "cascade" }),
+    dimension: varchar("dimension", { length: 120 }).notNull(),
+    averageScore: integer("average_score").default(0).notNull(),
+    riskLevel: riskLevelEnum("risk_level").default("baixo").notNull(),
+    respondentCount: integer("respondent_count").default(0).notNull(),
+    findingText: text("finding_text").notNull(),
+    recommendedAction: text("recommended_action").notNull(),
+    evidence: text("evidence"),
+    source: varchar("source", { length: 80 }).default("assessment_cycle").notNull(),
+    status: varchar("status", { length: 32 }).default("suggested").notNull(),
+    createdById: integer("created_by_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    companyCycleDimensionIdx: uniqueIndex("psychosocial_findings_company_cycle_dimension_idx").on(
+      t.companyId,
+      t.cycleId,
+      t.dimension,
+    ),
+    companyIdx: index("psychosocial_findings_company_idx").on(t.companyId),
+    cycleIdx: index("psychosocial_findings_cycle_idx").on(t.cycleId),
+  }),
+);
+export type PsychosocialFinding = typeof psychosocialFindings.$inferSelect;
+
+export const psychosocialRiskInventory = pgTable(
+  "psychosocial_risk_inventory",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    cycleId: integer("cycle_id").references(() => assessmentCycles.id, { onDelete: "set null" }),
+    findingId: integer("finding_id").references(() => psychosocialFindings.id, { onDelete: "set null" }),
+    department: varchar("department", { length: 160 }).notNull(),
+    role: varchar("role", { length: 160 }),
+    factor: varchar("factor", { length: 160 }).notNull(),
+    description: text("description").notNull(),
+    evidence: text("evidence"),
+    consequences: text("consequences"),
+    exposedWorkers: text("exposed_workers"),
+    probability: integer("probability").default(3).notNull(),
+    severity: integer("severity").default(3).notNull(),
+    riskLevel: riskLevelEnum("risk_level").default("medio").notNull(),
+    existingMeasures: text("existing_measures"),
+    recommendedAction: text("recommended_action").notNull(),
+    responsible: varchar("responsible", { length: 160 }),
+    deadline: timestamp("deadline"),
+    monitoring: text("monitoring"),
+    actionStatus: varchar("action_status", { length: 32 }).default("pendente").notNull(),
+    createdById: integer("created_by_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    companyIdx: index("psychosocial_inventory_company_idx").on(t.companyId),
+    cycleIdx: index("psychosocial_inventory_cycle_idx").on(t.cycleId),
+    findingIdx: index("psychosocial_inventory_finding_idx").on(t.findingId),
+  }),
+);
+export type PsychosocialRiskInventory = typeof psychosocialRiskInventory.$inferSelect;
+
+export const psychosocialDocuments = pgTable(
+  "psychosocial_documents",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    cycleId: integer("cycle_id").references(() => assessmentCycles.id, { onDelete: "set null" }),
+    templateId: varchar("template_id", { length: 80 }).notNull(),
+    title: varchar("title", { length: 255 }).notNull(),
+    status: varchar("status", { length: 32 }).default("gerado").notNull(),
+    notes: text("notes"),
+    pdfUrl: text("pdf_url"),
+    documentHash: varchar("document_hash", { length: 128 }),
+    metadata: json("metadata").$type<Record<string, unknown>>().default({}),
+    generatedById: integer("generated_by_id").references(() => users.id, { onDelete: "set null" }),
+    generatedAt: timestamp("generated_at").defaultNow(),
+    signedAt: timestamp("signed_at"),
+    archivedAt: timestamp("archived_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    companyIdx: index("psychosocial_documents_company_idx").on(t.companyId),
+    cycleIdx: index("psychosocial_documents_cycle_idx").on(t.cycleId),
+  }),
+);
+
+export const psychosocialDocumentSignatures = pgTable(
+  "psychosocial_document_signatures",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    documentId: integer("document_id")
+      .notNull()
+      .references(() => psychosocialDocuments.id, { onDelete: "cascade" }),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    employeeId: integer("employee_id").references(() => employees.id, { onDelete: "set null" }),
+    employeeName: varchar("employee_name", { length: 255 }),
+    employeeCpf: varchar("employee_cpf", { length: 14 }),
+    signatureType: varchar("signature_type", { length: 32 }).default("fisica").notNull(),
+    status: varchar("status", { length: 32 }).default("pendente").notNull(),
+    signedAt: timestamp("signed_at"),
+    signatureIp: varchar("signature_ip", { length: 45 }),
+    signatureHash: varchar("signature_hash", { length: 128 }),
+    evidenceUrl: text("evidence_url"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    documentIdx: index("psychosocial_signatures_document_idx").on(t.documentId),
+    companyIdx: index("psychosocial_signatures_company_idx").on(t.companyId),
+  }),
+);
+
+export const psychosocialDocumentAttachments = pgTable(
+  "psychosocial_document_attachments",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    documentId: integer("document_id")
+      .notNull()
+      .references(() => psychosocialDocuments.id, { onDelete: "cascade" }),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    fileUrl: text("file_url").notNull(),
+    fileName: varchar("file_name", { length: 255 }),
+    fileType: varchar("file_type", { length: 80 }),
+    uploadedById: integer("uploaded_by_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    documentIdx: index("psychosocial_attachments_document_idx").on(t.documentId),
+  }),
+);
+
+export const psychosocialDistributionLogs = pgTable(
+  "psychosocial_distribution_logs",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    cycleId: integer("cycle_id").references(() => assessmentCycles.id, { onDelete: "cascade" }),
+    channel: varchar("channel", { length: 80 }).notNull(),
+    audience: varchar("audience", { length: 255 }),
+    message: text("message").notNull(),
+    evidence: text("evidence"),
+    createdById: integer("created_by_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    companyIdx: index("psychosocial_distribution_company_idx").on(t.companyId),
+    cycleIdx: index("psychosocial_distribution_cycle_idx").on(t.cycleId),
+  }),
+);
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // RELATIONS
 // ═══════════════════════════════════════════════════════════════════════════════
 export const usersRelations = relations(users, ({ many }) => ({
