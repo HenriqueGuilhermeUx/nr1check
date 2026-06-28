@@ -40,7 +40,7 @@ export default function Onboarding() {
 
       <div className="mx-auto max-w-4xl px-6 py-10">
         <h1 className="text-2xl font-bold text-gray-900">Vamos configurar sua empresa</h1>
-        <p className="text-gray-600 mt-1">5 passos simples. Leva cerca de 30 minutos.</p>
+        <p className="text-gray-600 mt-1">Comece em poucos passos. Você pode completar os detalhes depois.</p>
 
         {/* Stepper */}
         <ol className="mt-8 flex items-center w-full">
