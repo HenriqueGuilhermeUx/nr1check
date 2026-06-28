@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useUser, UserButton } from "@clerk/clerk-react";
 import {
@@ -13,12 +14,15 @@ import {
   FileText,
   Link as LinkIcon,
   Lock,
+  Mail,
   MessageSquare,
   Plus,
   Printer,
   QrCode,
   Send,
   Shield,
+  Smartphone,
+  Trash2,
   Users,
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -97,6 +101,26 @@ type CycleLite = {
   endDate?: string | Date | null;
 };
 
+type DistributionRecord = {
+  id: string;
+  channel: string;
+  audience: string;
+  message: string;
+  evidence: string;
+  createdAt: string;
+};
+
+const CHANNEL_OPTIONS = [
+  "Link individual",
+  "QR Code individual",
+  "E-mail",
+  "Intranet",
+  "Comunicado interno",
+  "SMS manual",
+  "WhatsApp manual",
+  "WhatsApp/Z-API",
+];
+
 function formatDate(value?: string | Date | null) {
   if (!value) return "Sem prazo";
   const date = new Date(value);
@@ -118,9 +142,21 @@ function getWorkerLink(companyId: number, cycleId: number, employeeId: number) {
   return `${window.location.origin}/responder-avaliacao?companyId=${companyId}&cycleId=${cycleId}&employeeId=${employeeId}`;
 }
 
+function getQrUrl(value: string) {
+  return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(value)}`;
+}
+
 async function copyText(value: string, message = "Copiado!") {
   await navigator.clipboard.writeText(value);
   toast.success(message);
+}
+
+function storageKey(companyId?: number, cycleId?: number | null) {
+  return `nr1check:assessment-distribution:${companyId ?? "demo"}:${cycleId ?? "no-cycle"}`;
+}
+
+function createId() {
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 export default function PsychosocialAssessment() {
@@ -158,6 +194,15 @@ export default function PsychosocialAssessment() {
 
   const [cycleName, setCycleName] = useState("Avaliação Psicossocial NR-1");
   const [endDate, setEndDate] = useState("");
+  const [showQrKit, setShowQrKit] = useState(false);
+
+  const [distributionForm, setDistributionForm] = useState({
+    channel: "Link individual",
+    audience: "Todos os trabalhadores convidados",
+    message: "Avaliação psicossocial NR-1 disponibilizada aos trabalhadores com garantia de confidencialidade.",
+    evidence: "",
+  });
+  const [distributionRecords, setDistributionRecords] = useState<DistributionRecord[]>([]);
 
   const createCycle = trpc.assessment.createCycle.useMutation({
     onSuccess: async (result) => {
@@ -181,6 +226,26 @@ export default function PsychosocialAssessment() {
   const cycleList = ((cycles ?? []) as CycleLite[]);
   const currentCycle = cycleList.find((cycle) => cycle.id === currentCycleId) ?? activeCycle;
 
+  useEffect(() => {
+    const raw = window.localStorage.getItem(storageKey(companyId, currentCycleId));
+    if (!raw) {
+      setDistributionRecords([]);
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(raw) as DistributionRecord[];
+      setDistributionRecords(Array.isArray(parsed) ? parsed : []);
+    } catch {
+      setDistributionRecords([]);
+    }
+  }, [companyId, currentCycleId]);
+
+  useEffect(() => {
+    if (!companyId || !currentCycleId) return;
+    window.localStorage.setItem(storageKey(companyId, currentCycleId), JSON.stringify(distributionRecords));
+  }, [companyId, currentCycleId, distributionRecords]);
+
   const dimensions = useMemo(() => {
     const map = new Map<string, number>();
     for (const question of questionList) {
@@ -201,7 +266,9 @@ export default function PsychosocialAssessment() {
   const responseCount = cycleResults?.responses?.length ?? currentCycle?.totalResponded ?? 0;
   const invitedCount = currentCycle?.totalInvited ?? employeeList.length;
   const responseRate = invitedCount ? Math.round((Number(responseCount) / Number(invitedCount)) * 100) : 0;
-  const hasActiveCycle = currentCycle?.status === "active";
+  const generalInstructionText = currentCycleId && companyId
+    ? `Acesse o link individual ou QR Code entregue pela empresa para responder a Avaliação Psicossocial NR-1 do ciclo "${currentCycle?.name ?? "Avaliação Psicossocial NR-1"}".`
+    : "Crie ou selecione um ciclo para gerar os links de resposta.";
 
   function handleCreateCycle() {
     if (!companyId) {
@@ -216,9 +283,30 @@ export default function PsychosocialAssessment() {
     });
   }
 
-  const generalWorkerLink = currentCycleId && companyId
-    ? `${window.location.origin}/responder-avaliacao?companyId=${companyId}&cycleId=${currentCycleId}`
-    : "";
+  function addDistributionRecord() {
+    if (!currentCycleId || !companyId) {
+      toast.error("Crie ou selecione um ciclo antes de registrar distribuição.");
+      return;
+    }
+
+    const record: DistributionRecord = {
+      id: createId(),
+      channel: distributionForm.channel,
+      audience: distributionForm.audience || "Trabalhadores convidados",
+      message: distributionForm.message || "Avaliação psicossocial disponibilizada.",
+      evidence: distributionForm.evidence,
+      createdAt: new Date().toISOString(),
+    };
+
+    setDistributionRecords((current) => [record, ...current]);
+    setDistributionForm((current) => ({ ...current, evidence: "" }));
+    toast.success("Distribuição registrada como evidência.");
+  }
+
+  function removeDistributionRecord(id: string) {
+    setDistributionRecords((current) => current.filter((item) => item.id !== id));
+    toast.success("Registro removido.");
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -260,15 +348,15 @@ export default function PsychosocialAssessment() {
         <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">
-              <BarChart3 className="h-3.5 w-3.5" />
-              Fase 2 do roadmap
+              <QrCode className="h-3.5 w-3.5" />
+              Fase 3 do roadmap
             </div>
             <h1 className="mt-3 text-2xl lg:text-3xl font-bold text-gray-900">
-              Avaliação Psicossocial Base
+              Coleta sem depender de WhatsApp
             </h1>
             <p className="mt-2 max-w-3xl text-sm lg:text-base text-gray-600">
-              Use as perguntas cadastradas para abrir ciclos de avaliação, convidar trabalhadores,
-              acompanhar respostas e gerar base para achados agregados, inventário e plano de ação.
+              Gere links e QR Codes individuais para os trabalhadores responderem a avaliação psicossocial.
+              Use e-mail, intranet, SMS manual, comunicado interno, QR impresso ou WhatsApp quando disponível.
             </p>
             {company && (
               <p className="mt-3 flex items-center gap-1 text-sm text-gray-500">
@@ -282,6 +370,10 @@ export default function PsychosocialAssessment() {
             <button onClick={() => window.print()} className="btn-secondary text-sm">
               <Printer className="h-4 w-4" />
               Imprimir evidência
+            </button>
+            <button onClick={() => setShowQrKit((value) => !value)} className="btn-secondary text-sm">
+              <QrCode className="h-4 w-4" />
+              {showQrKit ? "Ocultar QR" : "Kit QR"}
             </button>
             <Link to="/inventario-riscos" className="btn-primary text-sm">
               Levar achados ao inventário <ArrowRight className="h-4 w-4" />
@@ -314,7 +406,7 @@ export default function PsychosocialAssessment() {
           <MetricCard label="Perguntas ativas" value={loadingQuestions ? "..." : String(questionList.length)} helper={`${dimensions.length} dimensão(ões)`} />
           <MetricCard label="Trabalhadores" value={String(employeeList.length)} helper="Base convidável" />
           <MetricCard label="Respostas do ciclo" value={String(responseCount)} helper={`${responseRate}% de participação`} />
-          <MetricCard label="Status do ciclo" value={getCycleStatusLabel(currentCycle?.status)} helper={currentCycle ? `Prazo: ${formatDate(currentCycle.endDate)}` : "Nenhum ciclo"} />
+          <MetricCard label="Registros de distribuição" value={String(distributionRecords.length)} helper="Evidência da comunicação" />
         </section>
 
         <section className="mt-6 grid gap-6 xl:grid-cols-[420px_1fr]">
@@ -355,27 +447,6 @@ export default function PsychosocialAssessment() {
                   {createCycle.isPending ? "Criando..." : "Criar ciclo e preparar convites"}
                 </button>
               </div>
-
-              <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Importante</p>
-                <p className="mt-1 text-xs text-gray-600">
-                  O envio por WhatsApp/Z-API é opcional. Mesmo sem WhatsApp, o app gera links que podem ser enviados por e-mail,
-                  intranet, QR Code, comunicado interno ou SMS manual.
-                </p>
-              </div>
-            </div>
-
-            <div className="card border-brand-200 bg-brand-50">
-              <div className="flex gap-3">
-                <Lock className="mt-1 h-5 w-5 text-brand-700" />
-                <div>
-                  <h2 className="font-bold text-brand-900">Confidencialidade</h2>
-                  <p className="mt-1 text-sm text-brand-800">
-                    O objetivo é gerar análise agregada da organização. Evite expor respostas individuais ao empregador.
-                    Isso aumenta adesão dos trabalhadores e reduz risco para a empresa.
-                  </p>
-                </div>
-              </div>
             </div>
 
             <div className="card">
@@ -383,9 +454,9 @@ export default function PsychosocialAssessment() {
 
               {loadingCycles ? (
                 <p className="mt-3 text-sm text-gray-500">Carregando ciclos...</p>
-              ) : cycleList.length ? (
+              ) : ((cycles ?? []) as CycleLite[]).length ? (
                 <div className="mt-4 space-y-2">
-                  {cycleList.map((cycle) => (
+                  {((cycles ?? []) as CycleLite[]).map((cycle) => (
                     <button
                       key={cycle.id}
                       onClick={() => setSelectedCycleId(cycle.id)}
@@ -418,6 +489,18 @@ export default function PsychosocialAssessment() {
                   Encerrar ciclo atual
                 </button>
               )}
+            </div>
+
+            <div className="card border-brand-200 bg-brand-50">
+              <div className="flex gap-3">
+                <Lock className="mt-1 h-5 w-5 text-brand-700" />
+                <div>
+                  <h2 className="font-bold text-brand-900">Confidencialidade</h2>
+                  <p className="mt-1 text-sm text-brand-800">
+                    O objetivo é gerar análise agregada da organização. Evite expor respostas individuais ao empregador.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -460,7 +543,7 @@ export default function PsychosocialAssessment() {
                     <div>
                       <p className="font-semibold text-yellow-900">Nenhuma pergunta ativa encontrada</p>
                       <p className="mt-1 text-sm text-yellow-800">
-                        Verifique a tabela copsoq_questions no Supabase. Se estiver vazia, rode um seed seguro.
+                        Verifique a tabela copsoq_questions no Supabase.
                       </p>
                     </div>
                   </div>
@@ -471,17 +554,11 @@ export default function PsychosocialAssessment() {
             <div className="card">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <h2 className="text-lg font-bold text-gray-900">Links de resposta dos trabalhadores</h2>
+                  <h2 className="text-lg font-bold text-gray-900">Links e QR Codes individuais</h2>
                   <p className="mt-1 text-sm text-gray-500">
-                    Use link direto. Funciona sem WhatsApp e sem login do funcionário.
+                    Funcionam sem WhatsApp e sem login do funcionário.
                   </p>
                 </div>
-                {generalWorkerLink && (
-                  <button onClick={() => copyText(generalWorkerLink, "Link geral copiado!")} className="btn-secondary text-sm">
-                    <Copy className="h-4 w-4" />
-                    Copiar link geral
-                  </button>
-                )}
               </div>
 
               {!currentCycleId ? (
@@ -506,7 +583,7 @@ export default function PsychosocialAssessment() {
                         <th className="px-3 py-2 text-left font-semibold text-gray-600">Trabalhador</th>
                         <th className="px-3 py-2 text-left font-semibold text-gray-600">Cargo</th>
                         <th className="px-3 py-2 text-left font-semibold text-gray-600">Canais</th>
-                        <th className="px-3 py-2 text-right font-semibold text-gray-600">Link</th>
+                        <th className="px-3 py-2 text-right font-semibold text-gray-600">Ações</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -524,15 +601,21 @@ export default function PsychosocialAssessment() {
                               <div className="flex flex-wrap gap-1">
                                 <ChannelTag icon={LinkIcon} label="Link" />
                                 <ChannelTag icon={QrCode} label="QR" />
-                                {employee.email && <ChannelTag icon={Send} label="E-mail" />}
-                                {employee.phone && <ChannelTag icon={MessageSquare} label="WhatsApp/SMS" />}
+                                {employee.email && <ChannelTag icon={Mail} label="E-mail" />}
+                                {employee.phone && <ChannelTag icon={Smartphone} label="SMS/WhatsApp" />}
                               </div>
                             </td>
                             <td className="px-3 py-3 text-right">
-                              <button onClick={() => copyText(link, `Link de ${employee.name} copiado!`)} className="btn-secondary text-xs">
-                                <Copy className="h-3.5 w-3.5" />
-                                Copiar
-                              </button>
+                              <div className="flex justify-end gap-2">
+                                <button onClick={() => copyText(link, `Link de ${employee.name} copiado!`)} className="btn-secondary text-xs">
+                                  <Copy className="h-3.5 w-3.5" />
+                                  Copiar
+                                </button>
+                                <button onClick={() => setShowQrKit(true)} className="btn-secondary text-xs">
+                                  <QrCode className="h-3.5 w-3.5" />
+                                  QR
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -549,11 +632,137 @@ export default function PsychosocialAssessment() {
               )}
             </div>
 
+            {showQrKit && currentCycleId && employeeList.length > 0 && (
+              <div className="card">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-900">Kit QR para impressão</h2>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Imprima ou salve em PDF. Cada QR é individual para registrar resposta no ciclo correto.
+                    </p>
+                  </div>
+                  <button onClick={() => window.print()} className="btn-secondary text-sm">
+                    <Printer className="h-4 w-4" />
+                    Imprimir
+                  </button>
+                </div>
+
+                <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {employeeList.slice(0, 9).map((employee) => {
+                    const link = getWorkerLink(companyId, currentCycleId, employee.id);
+
+                    return (
+                      <div key={employee.id} className="rounded-2xl border border-gray-200 bg-white p-4 text-center">
+                        <img src={getQrUrl(link)} alt={`QR Code de ${employee.name}`} className="mx-auto h-36 w-36 rounded-lg border border-gray-100" />
+                        <p className="mt-3 font-semibold text-gray-900">{employee.name}</p>
+                        <p className="text-xs text-gray-500">{employee.role || "Trabalhador(a)"}</p>
+                        <p className="mt-3 text-[11px] text-gray-500 break-all">{link}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {employeeList.length > 9 && (
+                  <p className="mt-3 text-xs text-gray-500">
+                    Mostrando 9 QR Codes. Para equipes maiores, use links copiáveis ou gere por lotes.
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="card">
+              <h2 className="text-lg font-bold text-gray-900">Registro de distribuição</h2>
+              <p className="mt-1 text-sm text-gray-500">
+                Registre como a empresa comunicou a avaliação. Isso vira evidência.
+              </p>
+
+              <div className="mt-5 grid gap-3 lg:grid-cols-2">
+                <div>
+                  <label className="label">Canal</label>
+                  <select
+                    className="input"
+                    value={distributionForm.channel}
+                    onChange={(event) => setDistributionForm({ ...distributionForm, channel: event.target.value })}
+                  >
+                    {CHANNEL_OPTIONS.map((channel) => (
+                      <option key={channel} value={channel}>{channel}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="label">Público</label>
+                  <input
+                    className="input"
+                    value={distributionForm.audience}
+                    onChange={(event) => setDistributionForm({ ...distributionForm, audience: event.target.value })}
+                    placeholder="Ex: todos os trabalhadores / setor atendimento"
+                  />
+                </div>
+
+                <div className="lg:col-span-2">
+                  <label className="label">Mensagem comunicada</label>
+                  <textarea
+                    className="input min-h-[90px]"
+                    value={distributionForm.message}
+                    onChange={(event) => setDistributionForm({ ...distributionForm, message: event.target.value })}
+                  />
+                </div>
+
+                <div className="lg:col-span-2">
+                  <label className="label">Evidência / observação</label>
+                  <input
+                    className="input"
+                    value={distributionForm.evidence}
+                    onChange={(event) => setDistributionForm({ ...distributionForm, evidence: event.target.value })}
+                    placeholder="Ex: comunicado enviado por e-mail em 28/06, cartaz afixado, reunião realizada"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button onClick={addDistributionRecord} className="btn-primary text-sm">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Registrar distribuição
+                </button>
+                <button onClick={() => copyText(generalInstructionText, "Texto de comunicado copiado!")} className="btn-secondary text-sm">
+                  <Copy className="h-4 w-4" />
+                  Copiar comunicado
+                </button>
+              </div>
+
+              {distributionRecords.length > 0 && (
+                <div className="mt-5 space-y-3">
+                  {distributionRecords.map((record) => (
+                    <div key={record.id} className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-semibold text-gray-900">{record.channel}</p>
+                          <p className="mt-1 text-xs text-gray-500">
+                            {new Date(record.createdAt).toLocaleString("pt-BR")} · {record.audience}
+                          </p>
+                          <p className="mt-2 text-sm text-gray-600">{record.message}</p>
+                          {record.evidence && (
+                            <p className="mt-2 text-xs text-gray-500">
+                              <strong>Evidência:</strong> {record.evidence}
+                            </p>
+                          )}
+                        </div>
+                        <button onClick={() => removeDistributionRecord(record.id)} className="rounded-lg p-2 text-gray-400 hover:bg-white hover:text-red-600">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="card bg-gray-900 text-white">
-              <h2 className="text-lg font-bold">Próxima fase: coleta sem depender de WhatsApp</h2>
+              <h2 className="text-lg font-bold">Próxima fase: achados agregados automáticos</h2>
               <p className="mt-2 text-sm text-gray-300">
-                Na Fase 3 vamos transformar esses links em QR Code por setor, comunicado interno,
-                página pública de acesso e registro de distribuição.
+                Na Fase 4 vamos transformar as respostas por dimensão em achados sugeridos,
+                respeitando confidencialidade e levando para inventário psicossocial.
               </p>
               <Link to="/obrigacoes-nr1" className="mt-4 inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-100">
                 Ver roadmap <ArrowRight className="h-4 w-4" />
@@ -576,7 +785,7 @@ function MetricCard({ label, value, helper }: { label: string; value: string; he
   );
 }
 
-function ChannelTag({ icon: Icon, label }: { icon: React.ElementType; label: string }) {
+function ChannelTag({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
       <Icon className="h-3 w-3" />
