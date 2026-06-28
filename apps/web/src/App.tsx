@@ -21,6 +21,7 @@ import DefensePanel from "./pages/DefensePanel";
 import EmployeeLogin from "./pages/EmployeeLogin";
 import EmployeePortal from "./pages/EmployeePortal";
 import NotFound from "./pages/NotFound";
+import AssessmentFindings from "./pages/AssessmentFindings";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return (
@@ -78,6 +79,15 @@ export function App() {
             </ProtectedRoute>
           }
         />
+
+        <Route
+  path="/achados-psicossociais"
+  element={
+    <ProtectedRoute>
+      <AssessmentFindings />
+    </ProtectedRoute>
+  }
+/>
 
         <Route
           path="/avaliacao-psicossocial"
