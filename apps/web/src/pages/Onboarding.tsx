@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertTriangle, Building2, FileCheck, Loader2, RefreshCcw, Shield, Users } from "lucide-react";
 import toast from "react-hot-toast";
@@ -21,15 +21,13 @@ function getErrorMessage(error: unknown) {
 
 function isDuplicateCompanyError(message: string) {
   const text = message.toLowerCase();
-  return text.includes("já existe") || text.includes("already") || text.includes("duplicate") || text.includes("conflict");
-}
-
-function timeoutAfter(ms: number) {
-  return new Promise<never>((_, reject) => {
-    window.setTimeout(() => {
-      reject(new Error("TIMEOUT_ONBOARDING_COMPANY_CREATE"));
-    }, ms);
-  });
+  return (
+    text.includes("já existe") ||
+    text.includes("ja existe") ||
+    text.includes("already") ||
+    text.includes("duplicate") ||
+    text.includes("conflict")
+  );
 }
 
 export default function Onboarding() {
@@ -46,10 +44,7 @@ export default function Onboarding() {
             </div>
             <span className="text-xl font-bold">NR1Check</span>
           </div>
-          <button
-            onClick={() => navigate("/dashboard")}
-            className="text-sm text-gray-500 hover:text-gray-700"
-          >
+          <button onClick={() => navigate("/dashboard")} className="text-sm text-gray-500 hover:text-gray-700">
             Ir para dashboard →
           </button>
         </div>
@@ -57,9 +52,7 @@ export default function Onboarding() {
 
       <div className="mx-auto max-w-4xl px-6 py-10">
         <h1 className="text-2xl font-bold text-gray-900">Configure sua empresa</h1>
-        <p className="text-gray-600 mt-1">
-          Comece em poucos passos. Você pode completar os detalhes depois.
-        </p>
+        <p className="text-gray-600 mt-1">Comece em poucos passos. Você pode completar os detalhes depois.</p>
 
         <ol className="mt-8 flex items-center w-full">
           {STEPS.map((s, i) => (
@@ -91,7 +84,10 @@ export default function Onboarding() {
 
 function Step1Company({ onDone, onGoDashboard }: { onDone: () => void; onGoDashboard: () => void }) {
   const utils = trpc.useUtils();
-  const { data: companies, refetch } = trpc.company.my.useQuery();
+
+  const { data: companies, isLoading: loadingCompanies, refetch } = trpc.company.my.useQuery(undefined, {
+    retry: 1,
+  });
 
   const [form, setForm] = useState({
     name: "",
@@ -101,29 +97,42 @@ function Step1Company({ onDone, onGoDashboard }: { onDone: () => void; onGoDashb
   });
 
   const [saving, setSaving] = useState(false);
-  const [stuck, setStuck] = useState(false);
+  const [slow, setSlow] = useState(false);
   const [lastError, setLastError] = useState("");
 
   const create = trpc.company.create.useMutation();
 
+  useEffect(() => {
+    let timer: number | undefined;
+
+    if (saving) {
+      timer = window.setTimeout(() => setSlow(true), 10000);
+    }
+
+    return () => {
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [saving]);
+
   async function checkExistingCompanyAndContinue() {
+    setLastError("");
     const result = await refetch();
-    const company = result.data?.[0] ?? companies?.[0];
+    const company = result.data?.[0];
 
     if (company) {
       toast.success("Empresa encontrada. Vamos continuar.");
       onDone();
-      return true;
+      return;
     }
 
-    return false;
+    toast.error("Ainda não encontrei empresa para esta conta.");
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     setLastError("");
-    setStuck(false);
+    setSlow(false);
 
     const cnpj = cleanDocument(form.cnpj);
 
@@ -146,38 +155,34 @@ function Step1Company({ onDone, onGoDashboard }: { onDone: () => void; onGoDashb
     setSaving(true);
 
     try {
-      await Promise.race([
-        create.mutateAsync({
-          name: form.name.trim(),
-          cnpj,
-          sector: form.sector.trim() || undefined,
-          cnaeCode: form.cnaeCode.trim() || undefined,
-          type: "empresa",
-          size: "micro",
-        }),
-        timeoutAfter(12000),
-      ]);
+      const saved = await create.mutateAsync({
+        name: form.name.trim(),
+        cnpj,
+        sector: form.sector.trim() || undefined,
+        cnaeCode: form.cnaeCode.trim() || undefined,
+        type: "empresa",
+        size: "micro",
+      });
 
       await utils.company.my.invalidate();
-      toast.success("Empresa cadastrada!");
+      toast.success(`Empresa ${saved.name} cadastrada!`);
       onDone();
     } catch (error) {
       const message = getErrorMessage(error);
 
-      if (message === "TIMEOUT_ONBOARDING_COMPANY_CREATE") {
-        setStuck(true);
-        setLastError("A API demorou para responder. A empresa pode ter sido criada, mas o app não recebeu confirmação.");
-        toast.error("A API demorou para responder. Verifique se criou ou tente novamente.");
+      if (isDuplicateCompanyError(message)) {
+        setLastError(
+          "Já existe uma empresa com este CNPJ. Se foi você que cadastrou em outra conta, entre com aquela conta ou use outro CNPJ para teste.",
+        );
+        toast.error("CNPJ já cadastrado.");
         return;
       }
 
-      if (isDuplicateCompanyError(message)) {
-        await utils.company.my.invalidate();
-        const found = await checkExistingCompanyAndContinue();
-        if (!found) {
-          toast.success("Empresa já existe. Continue pelo dashboard.");
-          onGoDashboard();
-        }
+      if (message.toLowerCase().includes("login")) {
+        setLastError(
+          "A API ainda não reconheceu sua sessão nesta chamada. Abra /debug-auth e confirme tokenVerified:true. Depois volte e tente novamente.",
+        );
+        toast.error("Sessão não reconhecida pela API.");
         return;
       }
 
@@ -194,6 +199,12 @@ function Step1Company({ onDone, onGoDashboard }: { onDone: () => void; onGoDashb
       <p className="text-sm text-gray-500 mt-1">
         Informe o mínimo para criar o painel. CNAE e dados complementares podem ser preenchidos depois.
       </p>
+
+      {loadingCompanies ? (
+        <div className="mt-5 rounded-xl border border-gray-200 bg-gray-50 p-4">
+          <p className="text-sm text-gray-600">Conferindo sua conta e empresas cadastradas...</p>
+        </div>
+      ) : null}
 
       {companies?.length ? (
         <div className="mt-5 rounded-xl border border-green-200 bg-green-50 p-4">
@@ -217,23 +228,31 @@ function Step1Company({ onDone, onGoDashboard }: { onDone: () => void; onGoDashb
         </div>
       ) : null}
 
-      {stuck ? (
+      {slow ? (
         <div className="mt-5 rounded-xl border border-yellow-200 bg-yellow-50 p-4">
           <div className="flex gap-3">
             <AlertTriangle className="mt-0.5 h-5 w-5 text-yellow-700" />
             <div>
-              <p className="font-semibold text-yellow-900">Salvamento demorou demais</p>
+              <p className="font-semibold text-yellow-900">Backend demorando para responder</p>
               <p className="mt-1 text-sm text-yellow-800">
-                Isso costuma acontecer quando o backend está acordando ou demorou para responder. A empresa pode ter sido criada.
+                Isso pode acontecer quando o Render ou o banco está acordando. Agora o app não cancela sozinho.
+                Aguarde mais alguns segundos.
               </p>
-              {lastError && <p className="mt-2 text-xs text-yellow-800">{lastError}</p>}
               <div className="mt-3 flex flex-wrap gap-2">
                 <button type="button" onClick={checkExistingCompanyAndContinue} className="btn-primary text-sm">
                   Verificar se criou
                 </button>
-                <button type="submit" className="btn-secondary text-sm">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSaving(false);
+                    setSlow(false);
+                    setLastError("");
+                  }}
+                  className="btn-secondary text-sm"
+                >
                   <RefreshCcw className="h-4 w-4" />
-                  Tentar novamente
+                  Liberar tentativa
                 </button>
                 <button type="button" onClick={onGoDashboard} className="btn-secondary text-sm">
                   Ir para dashboard
@@ -242,7 +261,9 @@ function Step1Company({ onDone, onGoDashboard }: { onDone: () => void; onGoDashb
             </div>
           </div>
         </div>
-      ) : lastError ? (
+      ) : null}
+
+      {lastError ? (
         <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
           {lastError}
         </div>
@@ -257,6 +278,7 @@ function Step1Company({ onDone, onGoDashboard }: { onDone: () => void; onGoDashb
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             placeholder="Ex: Alternative Ventures Ltda"
+            disabled={saving}
           />
         </div>
 
@@ -268,6 +290,7 @@ function Step1Company({ onDone, onGoDashboard }: { onDone: () => void; onGoDashb
             value={form.cnpj}
             onChange={(e) => setForm({ ...form, cnpj: e.target.value })}
             placeholder="00.000.000/0000-00"
+            disabled={saving}
           />
         </div>
 
@@ -278,6 +301,7 @@ function Step1Company({ onDone, onGoDashboard }: { onDone: () => void; onGoDashb
             value={form.sector}
             onChange={(e) => setForm({ ...form, sector: e.target.value })}
             placeholder="Ex: comércio, escritório, clínica, indústria, restaurante"
+            disabled={saving}
           />
         </div>
 
@@ -290,6 +314,7 @@ function Step1Company({ onDone, onGoDashboard }: { onDone: () => void; onGoDashb
             value={form.cnaeCode}
             onChange={(e) => setForm({ ...form, cnaeCode: e.target.value })}
             placeholder="Se souber, informe. Se não, deixe em branco."
+            disabled={saving}
           />
           <p className="mt-1 text-xs text-gray-400">
             O CNAE ajuda a sugerir riscos depois, mas não é necessário para começar.
@@ -298,15 +323,19 @@ function Step1Company({ onDone, onGoDashboard }: { onDone: () => void; onGoDashb
       </div>
 
       <div className="mt-6 flex flex-wrap gap-3">
-        <button type="submit" disabled={saving} className="btn-primary">
+        <button type="submit" disabled={saving || loadingCompanies} className="btn-primary">
           {saving ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              Salvando...
+              Salvando no backend...
             </>
           ) : (
             "Continuar →"
           )}
+        </button>
+
+        <button type="button" onClick={checkExistingCompanyAndContinue} className="btn-secondary">
+          Verificar se já existe
         </button>
 
         <button type="button" onClick={onGoDashboard} className="btn-secondary">
@@ -413,11 +442,7 @@ function Step2Employees({
           </div>
         ))}
 
-        <button
-          type="button"
-          onClick={() => setList([...list, { name: "", cpf: "", phone: "", role: "" }])}
-          className="btn-secondary text-sm"
-        >
+        <button type="button" onClick={() => setList([...list, { name: "", cpf: "", phone: "", role: "" }])} className="btn-secondary text-sm">
           + Adicionar linha
         </button>
       </div>
