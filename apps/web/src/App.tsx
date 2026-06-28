@@ -24,6 +24,7 @@ import EmployeePortal from "./pages/EmployeePortal";
 import NotFound from "./pages/NotFound";
 import AssessmentFindings from "./pages/AssessmentFindings";
 import DebugAuth from "./pages/DebugAuth";
+import Logout from "./pages/Logout";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   return (
@@ -45,6 +46,8 @@ export function App() {
 
         <Route path="/login/*" element={<Login />} />
         <Route path="/cadastro/*" element={<Signup />} />
+        <Route path="/sair" element={<Logout />} />
+        <Route path="/trocar-conta" element={<Logout />} />
 
         <Route path="/precos" element={<Pricing />} />
         <Route path="/pagamento/sucesso" element={<PaymentSuccess />} />
