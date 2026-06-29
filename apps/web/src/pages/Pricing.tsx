@@ -1,44 +1,63 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useUser } from "@clerk/clerk-react";
-import { Check, Shield } from "lucide-react";
+import { Check, Mail, MessageCircle, Shield } from "lucide-react";
 import toast from "react-hot-toast";
 import { trpc } from "../lib/trpc";
+
+const CONTACT_EMAIL = "henriquecampos66@gmail.com";
+const CONTACT_WHATSAPP = "5511947984328";
 
 const PLANS = [
   {
     id: "nr1_solo",
-    name: "NR1Check Solo",
-    price: 79,
-    description: "Para empresas de até 20 funcionários",
+    name: "Empresa Solo",
+    price: "R$ 79",
+    period: "mês",
+    description: "Para empresas de até 20 trabalhadores",
     features: [
-      "PGR gerado com IA",
-      "COPSOQ II-Br (40 questões)",
-      "4 cursos de micro-learning",
-      "Ordens de Serviço e EPI",
-      "Canal de Denúncias anônimo",
-      "Painel de Defesa",
-      "Notificações por WhatsApp",
+      "1 empresa cadastrada",
+      "Avaliação psicossocial",
+      "Inventário e plano de ação",
+      "Documentos básicos",
+      "Painel de pendências",
     ],
   },
   {
     id: "nr1_pro",
-    name: "NR1Check Pro",
-    price: 139,
-    description: "Para empresas de até 50 funcionários",
+    name: "PME Pro",
+    price: "R$ 139",
+    period: "mês",
+    description: "Para empresas de até 50 trabalhadores",
     features: [
-      "Tudo do Solo, mais:",
-      "Limite de 50 funcionários",
-      "Múltiplos gestores (RH + SST)",
-      "Exportação XML eSocial S-2240",
+      "Tudo do Solo",
+      "Até 50 trabalhadores",
+      "Documentos assináveis",
+      "Canal de relatos",
+      "Painel de defesa",
       "Suporte prioritário",
-      "Treinamento da equipe incluso",
     ],
     highlighted: true,
+  },
+  {
+    id: "contador",
+    name: "Contador/Consultor",
+    price: "R$ 199",
+    period: "mês",
+    description: "Para atender até 10 empresas clientes",
+    features: [
+      "Dashboard multiempresas",
+      "Cadastrar e selecionar clientes",
+      "Importação de trabalhadores por CSV",
+      "Status NR-1 por empresa",
+      "R$ 29/mês por empresa adicional",
+      "Acima de 30 empresas: sob consulta",
+    ],
+    accountant: true,
   },
 ];
 
 export default function Pricing() {
-  const { isSignedIn, user } = useUser();
+  const { isSignedIn } = useUser();
   const navigate = useNavigate();
   const utils = trpc.useUtils();
   const createCheckout = trpc.stripe.createCheckout.useMutation({
@@ -48,18 +67,26 @@ export default function Pricing() {
     onError: (err) => toast.error(err.message),
   });
 
-  const handleSubscribe = async (planId: "nr1_solo" | "nr1_pro") => {
+  const handleSubscribe = async (planId: "nr1_solo" | "nr1_pro" | "contador") => {
+    if (planId === "contador") {
+      window.localStorage.setItem("nr1check:user-mode", "contador");
+      navigate(isSignedIn ? "/clientes" : "/cadastro");
+      return;
+    }
+
     if (!isSignedIn) {
       navigate("/cadastro");
       return;
     }
-    // Pegar primeira empresa do usuário
+
     const companies = await utils.company.my.fetch();
+
     if (!companies.length) {
       toast.error("Cadastre sua empresa antes de assinar. Vamos te levar lá.");
       navigate("/comecar");
       return;
     }
+
     createCheckout.mutate({
       companyId: companies[0].id,
       planId,
@@ -81,13 +108,15 @@ export default function Pricing() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-5xl px-6 py-16">
+      <div className="mx-auto max-w-6xl px-6 py-16">
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900">Planos simples, sem fidelidade</h1>
-          <p className="mt-3 text-lg text-gray-600">Cancele quando quiser. Sem letras miúdas.</p>
+          <h1 className="text-4xl font-bold text-gray-900">Planos simples</h1>
+          <p className="mt-3 text-lg text-gray-600">
+            Para empresa pequena, PME e contador que atende várias empresas.
+          </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid lg:grid-cols-3 gap-6">
           {PLANS.map((p) => (
             <div
               key={p.id}
@@ -98,12 +127,15 @@ export default function Pricing() {
                   Mais escolhido
                 </span>
               )}
+
               <h3 className="text-xl font-bold text-gray-900">{p.name}</h3>
               <p className="text-sm text-gray-500 mt-1">{p.description}</p>
+
               <div className="mt-6 flex items-baseline gap-1">
-                <span className="text-4xl font-extrabold text-gray-900">R${p.price}</span>
-                <span className="text-gray-500">/mês</span>
+                <span className="text-4xl font-extrabold text-gray-900">{p.price}</span>
+                <span className="text-gray-500">/{p.period}</span>
               </div>
+
               <ul className="mt-6 space-y-3">
                 {p.features.map((f) => (
                   <li key={f} className="flex gap-2 text-sm text-gray-700">
@@ -112,20 +144,38 @@ export default function Pricing() {
                   </li>
                 ))}
               </ul>
+
               <button
-                onClick={() => handleSubscribe(p.id as "nr1_solo" | "nr1_pro")}
+                onClick={() => handleSubscribe(p.id as "nr1_solo" | "nr1_pro" | "contador")}
                 disabled={createCheckout.isPending}
                 className={`mt-6 w-full ${p.highlighted ? "btn-primary" : "btn-secondary"}`}
               >
-                {createCheckout.isPending ? "Redirecionando..." : "Assinar agora"}
+                {createCheckout.isPending ? "Redirecionando..." : p.accountant ? "Começar como contador" : "Assinar agora"}
               </button>
             </div>
           ))}
         </div>
 
-        <p className="mt-8 text-center text-sm text-gray-500">
-          Precisa de mais de 50 funcionários? <a href="mailto:henriquecampos66@gmail.com" className="text-brand-600 hover:underline">Fale com a gente</a> para o plano corporativo.
-        </p>
+        <div className="mt-10 flex justify-center gap-3">
+          <a
+            href={`mailto:${CONTACT_EMAIL}`}
+            aria-label="Enviar e-mail"
+            title="Enviar e-mail"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 hover:border-brand-300 hover:text-brand-700"
+          >
+            <Mail className="h-4 w-4" />
+          </a>
+          <a
+            href={`https://wa.me/${CONTACT_WHATSAPP}`}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Falar no WhatsApp"
+            title="Falar no WhatsApp"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 hover:border-brand-300 hover:text-brand-700"
+          >
+            <MessageCircle className="h-4 w-4" />
+          </a>
+        </div>
       </div>
     </div>
   );
