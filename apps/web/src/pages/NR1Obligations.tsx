@@ -1,21 +1,20 @@
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { useUser, UserButton } from "@clerk/clerk-react";
 import {
-  Activity,
   AlertTriangle,
   ArrowRight,
-  BarChart3,
   Building2,
   CheckCircle2,
-  ClipboardList,
-  FileText,
+  ClipboardCheck,
+  FileCheck,
+  HelpCircle,
   Lock,
   MessageSquare,
+  RefreshCcw,
   Send,
-  Shield,
-  Users,
 } from "lucide-react";
 import { trpc } from "../lib/trpc";
+import { AppShell, EmptyPanel, MetricCard, PageHeader, StatusBadge } from "../components/AppShell";
 
 type PhaseStatus = "feito" | "em_andamento" | "proximo" | "pendente";
 
@@ -24,368 +23,514 @@ type Phase = {
   title: string;
   description: string;
   status: PhaseStatus;
-  route?: string;
-  button?: string;
+  route: string;
+  button: string;
   evidence: string;
 };
 
-const NAV = [
-  { to: "/dashboard", label: "Visão geral", icon: Activity },
-  { to: "/obrigacoes-nr1", label: "Obrigações NR-1", icon: ClipboardList },
-  { to: "/funcionarios", label: "Funcionários", icon: Users },
-  { to: "/avaliacao-psicossocial", label: "Avaliação", icon: BarChart3 },
-  { to: "/inventario-riscos", label: "Inventário + Plano", icon: FileText },
-  { to: "/denuncias", label: "Relatos", icon: MessageSquare },
-  { to: "/painel-defesa", label: "Painel de Defesa", icon: Shield },
-];
-
-const PHASES: Phase[] = [
-  {
-    id: 1,
-    title: "Mapa de Obrigações NR-1 Psicossocial",
-    description: "Centralizar o que a empresa precisa fazer: escuta, análise, inventário, plano de ação, evidências e revisão.",
-    status: "feito",
-    route: "/obrigacoes-nr1",
-    button: "Ver fase",
-    evidence: "Checklist de obrigações e trilha de implantação.",
-  },
-  {
-    id: 2,
-    title: "Avaliação Psicossocial Base",
-    description: "Disponibilizar questionário aos trabalhadores, com linguagem simples, confidencialidade e coleta por ciclo.",
-    status: "feito",
-    route: "/avaliacao-psicossocial",
-    button: "Abrir avaliação",
-    evidence: "Ciclo criado, perguntas ativas, convidados e respostas registradas.",
-  },
-  {
-    id: 3,
-    title: "Coleta sem depender de WhatsApp",
-    description: "Permitir resposta por link individual, QR Code, intranet, comunicado interno, e-mail, SMS manual ou WhatsApp quando disponível.",
-    status: "em_andamento",
-    route: "/avaliacao-psicossocial",
-    button: "Gerenciar coleta",
-    evidence: "Links individuais, QR, comunicado e registro de distribuição.",
-  },
-  {
-    id: 4,
-    title: "Achados Agregados por Dimensão",
-    description: "Transformar respostas em achados por dimensão: carga, ritmo, autonomia, liderança, apoio, insegurança e bem-estar.",
-    status: "proximo",
-    route: "/avaliacao-psicossocial",
-    button: "Ver achados",
-    evidence: "Resultado agregado, sem exposição individual do trabalhador.",
-  },
-  {
-    id: 5,
-    title: "Inventário Psicossocial",
-    description: "Converter achados em riscos psicossociais organizacionais por setor, função ou grupo exposto.",
-    status: "pendente",
-    route: "/inventario-riscos",
-    button: "Abrir inventário",
-    evidence: "Risco, fonte, trabalhadores expostos, probabilidade, severidade e nível.",
-  },
-  {
-    id: 6,
-    title: "Plano de Ação Inteligente",
-    description: "Sugerir ações para cada risco: responsável, prazo, monitoramento, status e evidência esperada.",
-    status: "pendente",
-    route: "/inventario-riscos",
-    button: "Ver plano",
-    evidence: "Ações preventivas/corretivas com responsável e prazo.",
-  },
-  {
-    id: 7,
-    title: "Canal de Relatos e Ocorrências",
-    description: "Manter canal contínuo para relatos sobre assédio, conflitos, violência, sobrecarga e outros fatores psicossociais.",
-    status: "pendente",
-    route: "/denuncias",
-    button: "Abrir relatos",
-    evidence: "Protocolos, status de apuração, medidas e histórico.",
-  },
-  {
-    id: 8,
-    title: "Dossiê de Evidências",
-    description: "Gerar pacote de evidências para demonstrar que a empresa avaliou, analisou, agiu e revisou.",
-    status: "pendente",
-    route: "/documentos",
-    button: "Gerar evidências",
-    evidence: "PDF com ciclo, participação, achados, ações, relatos e revisões.",
-  },
-  {
-    id: 9,
-    title: "Seção Psicossocial do PGR",
-    description: "Gerar uma seção psicossocial para anexar ao PGR, sem prometer substituir responsável técnico.",
-    status: "pendente",
-    route: "/documentos",
-    button: "Gerar seção PGR",
-    evidence: "Metodologia, riscos identificados, plano de ação e próxima revisão.",
-  },
-  {
-    id: 10,
-    title: "Painel Executivo e Monetização",
-    description: "Consolidar status, score, pendências, planos pagos, cobrança, renovação e alertas para o empresário.",
-    status: "pendente",
-    route: "/painel-defesa",
-    button: "Ver painel",
-    evidence: "Semáforo, pendências críticas, histórico e plano contratado.",
-  },
-];
-
-const STATUS_CONFIG: Record<PhaseStatus, { label: string; className: string }> = {
-  feito: { label: "Feito", className: "border-green-200 bg-green-50 text-green-700" },
-  em_andamento: { label: "Em andamento", className: "border-brand-200 bg-brand-50 text-brand-700" },
-  proximo: { label: "Próximo", className: "border-yellow-200 bg-yellow-50 text-yellow-700" },
-  pendente: { label: "Pendente", className: "border-gray-200 bg-gray-50 text-gray-600" },
+type ObligationItem = {
+  title: string;
+  detail: string;
+  done: boolean;
 };
 
-const OBLIGATIONS = [
-  {
-    title: "Identificar fatores psicossociais",
-    detail: "Mapear sobrecarga, metas, ritmo, liderança, apoio, conflitos, assédio, autonomia, jornada e bem-estar.",
+const SELECTED_COMPANY_KEY = "nr1check:selected-company-id";
+
+const STATUS_CONFIG: Record<PhaseStatus, { label: string; tone: "green" | "brand" | "yellow" | "gray"; dotClass: string }> = {
+  feito: {
+    label: "Feito",
+    tone: "green",
+    dotClass: "border-green-200 bg-green-50 text-green-700",
   },
-  {
-    title: "Consultar trabalhadores com confidencialidade",
-    detail: "Coletar percepção dos trabalhadores sem expor respostas individuais ao empregador.",
+  em_andamento: {
+    label: "Em andamento",
+    tone: "brand",
+    dotClass: "border-brand-200 bg-brand-50 text-brand-700",
   },
-  {
-    title: "Analisar resultados agregados",
-    detail: "Consolidar dados por empresa, setor ou grupo, respeitando número mínimo para preservar anonimato.",
+  proximo: {
+    label: "Próximo passo",
+    tone: "yellow",
+    dotClass: "border-yellow-200 bg-yellow-50 text-yellow-700",
   },
-  {
-    title: "Criar inventário psicossocial",
-    detail: "Registrar riscos psicossociais identificados, fontes, consequências e trabalhadores expostos.",
+  pendente: {
+    label: "Pendente",
+    tone: "gray",
+    dotClass: "border-gray-200 bg-gray-50 text-gray-600",
   },
-  {
-    title: "Definir plano de ação",
-    detail: "Criar medidas preventivas/corretivas com responsável, prazo, evidência e monitoramento.",
-  },
-  {
-    title: "Registrar evidências",
-    detail: "Guardar comunicação, respostas agregadas, achados, ações, revisões e documentos gerados.",
-  },
-  {
-    title: "Revisar o PGR",
-    detail: "Atualizar a seção psicossocial quando houver nova avaliação, ocorrência, mudança de processo ou revisão periódica.",
-  },
-];
+};
+
+function getPhaseStatus(done: boolean, enabled: boolean, previousDone: boolean): PhaseStatus {
+  if (done) return "feito";
+  if (enabled) return "em_andamento";
+  if (previousDone) return "proximo";
+  return "pendente";
+}
+
+function phaseProgressValue(status: PhaseStatus) {
+  if (status === "feito") return 1;
+  if (status === "em_andamento") return 0.5;
+  if (status === "proximo") return 0.2;
+  return 0;
+}
 
 export default function NR1Obligations() {
-  const { user } = useUser();
-  const { data: companies, isLoading } = trpc.company.my.useQuery();
-  const company = companies?.[0];
+  const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null);
+  const [slowCompanyLoad, setSlowCompanyLoad] = useState(false);
 
-  const completed = PHASES.filter((phase) => phase.status === "feito").length;
-  const inProgress = PHASES.filter((phase) => phase.status === "em_andamento").length;
-  const next = PHASES.filter((phase) => phase.status === "proximo").length;
-  const total = PHASES.length;
-  const progress = Math.round(((completed + inProgress * 0.5) / total) * 100);
+  const {
+    data: companies,
+    isLoading: loadingCompanies,
+    isFetching: fetchingCompanies,
+    refetch: refetchCompanies,
+    error: companyError,
+  } = trpc.company.my.useQuery(undefined, {
+    retry: 1,
+    refetchOnWindowFocus: false,
+  });
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem(SELECTED_COMPANY_KEY);
+    if (stored) setSelectedCompanyId(Number(stored));
+  }, []);
+
+  useEffect(() => {
+    if (!loadingCompanies && !fetchingCompanies) {
+      setSlowCompanyLoad(false);
+      return;
+    }
+
+    const timer = window.setTimeout(() => setSlowCompanyLoad(true), 7000);
+    return () => window.clearTimeout(timer);
+  }, [loadingCompanies, fetchingCompanies]);
+
+  const company = useMemo(() => {
+    if (!companies?.length) return undefined;
+
+    if (selectedCompanyId) {
+      return companies.find((item) => item.id === selectedCompanyId) ?? companies[0];
+    }
+
+    return companies[0];
+  }, [companies, selectedCompanyId]);
+
+  const companyId = company?.id ?? 0;
+
+  const { data: employees, isFetching: fetchingEmployees } = trpc.employee.list.useQuery(
+    { companyId },
+    { enabled: !!companyId, retry: 1, refetchOnWindowFocus: false },
+  );
+
+  const { data: cycles, isFetching: fetchingCycles } = trpc.assessment.cycles.useQuery(
+    { companyId },
+    { enabled: !!companyId, retry: 1, refetchOnWindowFocus: false },
+  );
+
+  const { data: findings, isFetching: fetchingFindings } = trpc.psychosocial.listFindings.useQuery(
+    { companyId },
+    { enabled: !!companyId, retry: 1, refetchOnWindowFocus: false },
+  );
+
+  const { data: inventory, isFetching: fetchingInventory } = trpc.psychosocial.listInventory.useQuery(
+    { companyId },
+    { enabled: !!companyId, retry: 1, refetchOnWindowFocus: false },
+  );
+
+  const { data: documents, isFetching: fetchingDocuments } = trpc.psychosocial.listDocuments.useQuery(
+    { companyId },
+    { enabled: !!companyId, retry: 1, refetchOnWindowFocus: false },
+  );
+
+  const employeeCount = employees?.length ?? 0;
+  const cycleCount = cycles?.length ?? 0;
+  const activeCycle = cycles?.find((cycle) => cycle.status === "active") ?? cycles?.[0];
+  const responseCount = Number(activeCycle?.totalResponded ?? 0);
+  const invitedCount = Number(activeCycle?.totalInvited ?? employeeCount);
+  const responseRate = invitedCount ? Math.round((responseCount / invitedCount) * 100) : 0;
+  const findingCount = findings?.length ?? 0;
+  const inventoryCount = inventory?.length ?? 0;
+  const pendingActions = inventory?.filter((item) => item.actionStatus !== "concluido").length ?? 0;
+  const documentCount = documents?.length ?? 0;
+
+  const hasCompany = !!company;
+  const hasEmployees = employeeCount > 0;
+  const hasCycle = cycleCount > 0;
+  const hasMinimumResponses = responseCount >= 3;
+  const hasFindings = findingCount > 0;
+  const hasInventory = inventoryCount > 0;
+  const hasActionPlanDone = inventoryCount > 0 && pendingActions === 0;
+  const hasDocuments = documentCount > 0;
+
+  const phases: Phase[] = [
+    {
+      id: 1,
+      title: "Cadastrar/selecionar empresa",
+      description: "Empresa vinculada à conta para começar o fluxo NR-1 psicossocial.",
+      status: getPhaseStatus(hasCompany, !hasCompany, true),
+      route: "/comecar",
+      button: hasCompany ? "Ver empresa" : "Cadastrar empresa",
+      evidence: hasCompany ? `${company?.name} cadastrada.` : "Nenhuma empresa selecionada.",
+    },
+    {
+      id: 2,
+      title: "Cadastrar trabalhadores",
+      description: "Base mínima para enviar avaliação e gerar evidências de participação.",
+      status: getPhaseStatus(hasEmployees, hasCompany, hasCompany),
+      route: "/funcionarios",
+      button: "Cadastrar equipe",
+      evidence: `${employeeCount} trabalhador(es) cadastrado(s).`,
+    },
+    {
+      id: 3,
+      title: "Abrir avaliação psicossocial",
+      description: "Criar ciclo e disponibilizar questionário por link, QR ou outro canal.",
+      status: getPhaseStatus(hasCycle, hasEmployees, hasEmployees),
+      route: "/avaliacao-psicossocial",
+      button: "Abrir avaliação",
+      evidence: `${cycleCount} ciclo(s) criado(s).`,
+    },
+    {
+      id: 4,
+      title: "Coletar respostas",
+      description: "Acompanhar participação sem expor respostas individuais.",
+      status: getPhaseStatus(hasMinimumResponses, hasCycle, hasCycle),
+      route: "/avaliacao-psicossocial",
+      button: "Gerenciar coleta",
+      evidence: `${responseCount}/${invitedCount || 0} resposta(s) · ${responseRate}% participação.`,
+    },
+    {
+      id: 5,
+      title: "Gerar achados agregados",
+      description: "Transformar respostas em achados por dimensão: carga, ritmo, apoio, liderança e bem-estar.",
+      status: getPhaseStatus(hasFindings, hasMinimumResponses, hasMinimumResponses),
+      route: "/achados-psicossociais",
+      button: "Gerar achados",
+      evidence: `${findingCount} achado(s) salvo(s).`,
+    },
+    {
+      id: 6,
+      title: "Criar inventário psicossocial",
+      description: "Converter achados em riscos psicossociais por setor, função ou grupo exposto.",
+      status: getPhaseStatus(hasInventory, hasFindings, hasFindings),
+      route: "/inventario-riscos",
+      button: "Abrir inventário",
+      evidence: `${inventoryCount} risco(s) psicossocial(is) registrado(s).`,
+    },
+    {
+      id: 7,
+      title: "Definir plano de ação",
+      description: "Registrar responsáveis, prazos, medidas e evidências esperadas.",
+      status: hasActionPlanDone ? "feito" : hasInventory ? "em_andamento" : hasFindings ? "proximo" : "pendente",
+      route: "/inventario-riscos",
+      button: "Ver plano",
+      evidence: hasInventory
+        ? `${pendingActions} ação(ões) ainda pendente(s).`
+        : "Plano nasce a partir do inventário.",
+    },
+    {
+      id: 8,
+      title: "Canal de relatos e ocorrências",
+      description: "Manter canal para relatos sobre assédio, conflitos, violência, sobrecarga e outros fatores.",
+      status: hasCompany ? "em_andamento" : "pendente",
+      route: "/denuncias",
+      button: "Abrir relatos",
+      evidence: hasCompany
+        ? "Canal disponível para registro e acompanhamento."
+        : "Disponível após cadastro da empresa.",
+    },
+    {
+      id: 9,
+      title: "Gerar documentos e assinaturas",
+      description: "Gerar ata, termo de ciência, lista de presença, cartilha, código de conduta e dossiê.",
+      status: getPhaseStatus(hasDocuments, hasInventory, hasInventory),
+      route: "/documentos-assinaturas",
+      button: "Gerar documentos",
+      evidence: `${documentCount} documento(s) registrado(s).`,
+    },
+    {
+      id: 10,
+      title: "Revisão e seção psicossocial do PGR",
+      description: "Organizar evidências para revisão periódica e anexação ao processo de SST/PGR.",
+      status: hasDocuments ? "em_andamento" : hasInventory ? "proximo" : "pendente",
+      route: "/painel-defesa",
+      button: "Ver defesa",
+      evidence: hasDocuments
+        ? "Dossiê iniciado. Revisão deve ser acompanhada periodicamente."
+        : "Depende de inventário, plano e documentos.",
+    },
+  ];
+
+  const completed = phases.filter((phase) => phase.status === "feito").length;
+  const inProgress = phases.filter((phase) => phase.status === "em_andamento").length;
+  const next = phases.filter((phase) => phase.status === "proximo").length;
+  const total = phases.length;
+  const progress = Math.round((phases.reduce((sum, phase) => sum + phaseProgressValue(phase.status), 0) / total) * 100);
+  const nextPhase = phases.find((phase) => phase.status === "em_andamento") ?? phases.find((phase) => phase.status === "proximo") ?? phases[0];
+
+  const obligations: ObligationItem[] = [
+    {
+      title: "Identificar fatores psicossociais",
+      detail: "Mapear sobrecarga, metas, ritmo, liderança, apoio, conflitos, autonomia, jornada e bem-estar.",
+      done: hasCycle || hasFindings || hasInventory,
+    },
+    {
+      title: "Consultar trabalhadores com confidencialidade",
+      detail: "Coletar percepção dos trabalhadores sem expor respostas individuais ao empregador.",
+      done: responseCount > 0,
+    },
+    {
+      title: "Analisar resultados agregados",
+      detail: "Consolidar dados por empresa, setor ou grupo, respeitando mínimo para preservar anonimato.",
+      done: hasFindings,
+    },
+    {
+      title: "Criar inventário psicossocial",
+      detail: "Registrar riscos identificados, fontes, consequências e trabalhadores expostos.",
+      done: hasInventory,
+    },
+    {
+      title: "Definir plano de ação",
+      detail: "Criar medidas preventivas/corretivas com responsável, prazo, evidência e monitoramento.",
+      done: hasInventory,
+    },
+    {
+      title: "Registrar evidências",
+      detail: "Guardar comunicação, respostas agregadas, achados, ações, revisões e documentos gerados.",
+      done: hasDocuments,
+    },
+    {
+      title: "Revisar o PGR",
+      detail: "Atualizar a seção psicossocial quando houver nova avaliação, ocorrência ou revisão periódica.",
+      done: false,
+    },
+  ];
+
+  const anySecondaryLoading =
+    fetchingEmployees || fetchingCycles || fetchingFindings || fetchingInventory || fetchingDocuments;
+
+  function handleCompanyChange(value: string) {
+    const id = Number(value);
+    setSelectedCompanyId(id);
+    window.localStorage.setItem(SELECTED_COMPANY_KEY, String(id));
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      <aside className="w-64 bg-white border-r border-gray-200 hidden md:flex flex-col print:hidden">
-        <div className="p-6 border-b border-gray-200">
-          <Link to="/dashboard" className="flex items-center gap-2">
-            <div className="h-9 w-9 rounded-lg bg-brand-600 flex items-center justify-center">
-              <Shield className="h-5 w-5 text-white" />
-            </div>
-            <span className="text-lg font-bold">NR1Check</span>
-          </Link>
-        </div>
-
-        <nav className="flex-1 p-4 space-y-1">
-          {NAV.map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium ${
-                item.to === "/obrigacoes-nr1" ? "bg-brand-50 text-brand-700" : "text-gray-700 hover:bg-gray-100"
-              }`}
-            >
-              <item.icon className="h-4 w-4" />
-              {item.label}
+    <AppShell>
+      <PageHeader
+        eyebrow="Roadmap real da empresa"
+        title="Obrigações NR-1 psicossocial"
+        description="Esta tela agora mostra o que já foi feito com base nos dados reais da empresa selecionada: trabalhadores, avaliação, respostas, achados, inventário, plano e documentos."
+        action={
+          nextPhase ? (
+            <Link to={nextPhase.route} className="btn-primary">
+              {nextPhase.button} <ArrowRight className="h-4 w-4" />
             </Link>
-          ))}
-        </nav>
+          ) : null
+        }
+      />
 
-        <div className="p-4 border-t border-gray-200 flex items-center gap-3">
-          <UserButton afterSignOutUrl="/" />
-          <div className="text-sm min-w-0">
-            <p className="font-medium truncate">{user?.firstName ?? "Gestor"}</p>
-            <p className="text-gray-500 text-xs truncate">{user?.primaryEmailAddress?.emailAddress}</p>
-          </div>
-        </div>
-      </aside>
-
-      <main className="flex-1 p-6 lg:p-8">
-        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">
-              <Shield className="h-3.5 w-3.5" />
-              Roadmap oficial NR1Check
-            </div>
-            <h1 className="mt-3 text-2xl lg:text-3xl font-bold text-gray-900">
-              Obrigações NR-1 Psicossocial
-            </h1>
-            <p className="mt-2 max-w-3xl text-sm lg:text-base text-gray-600">
-              Mapa prático para a empresa sair da dúvida e seguir uma trilha defensável:
-              avaliar fatores psicossociais, gerar achados agregados, criar inventário,
-              executar plano de ação e guardar evidências.
-            </p>
-            {company && (
-              <p className="mt-3 flex items-center gap-1 text-sm text-gray-500">
-                <Building2 className="h-4 w-4" />
-                {company.name}
+      {loadingCompanies && slowCompanyLoad ? (
+        <div className="mb-6 rounded-2xl border border-yellow-200 bg-yellow-50 p-4">
+          <div className="flex gap-3">
+            <AlertTriangle className="mt-0.5 h-5 w-5 text-yellow-700" />
+            <div>
+              <h2 className="font-semibold text-yellow-900">A empresa está demorando para carregar</h2>
+              <p className="mt-1 text-sm text-yellow-800">
+                Isso geralmente é API acordando ou banco lento. Você pode tentar recarregar a lista.
               </p>
-            )}
-          </div>
-
-          <div className="card min-w-[240px] bg-white">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Progresso do roadmap</p>
-            <p className="mt-2 text-3xl font-bold text-gray-900">{progress}%</p>
-            <div className="mt-3 h-2 overflow-hidden rounded-full bg-gray-200">
-              <div className="h-full rounded-full bg-brand-600" style={{ width: `${progress}%` }} />
+              <button type="button" onClick={() => refetchCompanies()} className="btn-secondary mt-3 text-sm">
+                <RefreshCcw className="h-4 w-4" />
+                Tentar carregar de novo
+              </button>
             </div>
-            <p className="mt-2 text-xs text-gray-500">
-              {completed} feita(s), {inProgress} em andamento, {next} próxima(s).
-            </p>
           </div>
         </div>
+      ) : null}
 
-        {isLoading ? (
-          <div className="card">
-            <p className="text-gray-500">Carregando empresa...</p>
-          </div>
-        ) : !companies?.length ? (
-          <div className="card border-yellow-200 bg-yellow-50">
-            <div className="flex gap-3">
-              <AlertTriangle className="h-5 w-5 text-yellow-700" />
-              <div>
-                <h2 className="font-semibold text-yellow-900">Cadastre a empresa primeiro</h2>
-                <p className="mt-1 text-sm text-yellow-800">
-                  Para seguir a trilha NR-1, comece pelo cadastro da empresa.
-                </p>
-                <Link to="/comecar" className="btn-primary mt-4">
-                  Configurar empresa →
-                </Link>
-              </div>
+      {companyError ? (
+        <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4">
+          <div className="flex gap-3">
+            <AlertTriangle className="mt-0.5 h-5 w-5 text-red-700" />
+            <div>
+              <h2 className="font-semibold text-red-900">Não foi possível carregar empresas</h2>
+              <p className="mt-1 text-sm text-red-800">{companyError.message}</p>
+              <button type="button" onClick={() => refetchCompanies()} className="btn-secondary mt-3 text-sm">
+                Tentar novamente
+              </button>
             </div>
           </div>
-        ) : null}
+        </div>
+      ) : null}
 
-        <section className="grid gap-4 md:grid-cols-3">
-          <MetricCard label="Fases do roadmap" value="10" helper="Sequência oficial do produto" />
-          <MetricCard label="Obrigação central" value="Psicossocial" helper="Foco exclusivo NR-1" />
-          <MetricCard label="Entrega da empresa" value="Evidências" helper="Provar avaliação, ação e revisão" />
-        </section>
-
-        <section className="mt-6 grid gap-6 xl:grid-cols-[1fr_380px]">
-          <div className="card">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-bold text-gray-900">Roadmap oficial de entrega</h2>
-                <p className="mt-1 text-sm text-gray-500">
-                  Vamos seguir essas 10 fases, uma por uma, até o produto ficar completo.
-                </p>
-              </div>
-              <Link to="/avaliacao-psicossocial" className="btn-primary hidden sm:inline-flex">
-                Próxima fase <ArrowRight className="h-4 w-4" />
-              </Link>
-            </div>
-
-            <div className="mt-5 space-y-3">
-              {PHASES.map((phase) => {
-                const cfg = STATUS_CONFIG[phase.status];
-
-                return (
-                  <div key={phase.id} className="rounded-xl border border-gray-200 bg-white p-4">
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                      <div className="flex gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-900 text-sm font-bold text-white">
-                          {phase.id}
-                        </div>
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="font-semibold text-gray-900">{phase.title}</h3>
-                            <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${cfg.className}`}>
-                              {cfg.label}
-                            </span>
-                          </div>
-                          <p className="mt-1 text-sm text-gray-600">{phase.description}</p>
-                          <p className="mt-2 text-xs text-gray-500">
-                            <strong>Evidência:</strong> {phase.evidence}
-                          </p>
-                        </div>
-                      </div>
-
-                      {phase.route && (
-                        <Link to={phase.route} className="btn-secondary whitespace-nowrap text-sm">
-                          {phase.button ?? "Abrir"} <ArrowRight className="h-4 w-4" />
-                        </Link>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <aside className="space-y-6">
-            <div className="card border-brand-200 bg-brand-50">
-              <div className="flex gap-3">
-                <Lock className="mt-1 h-5 w-5 text-brand-700" />
+      {!loadingCompanies && !companies?.length ? (
+        <EmptyPanel
+          icon={<Building2 className="h-6 w-6" />}
+          title="Cadastre uma empresa primeiro"
+          description="O roadmap fica real depois que uma empresa é cadastrada ou selecionada."
+          action={<Link to="/comecar" className="btn-primary">Cadastrar empresa →</Link>}
+        />
+      ) : (
+        <div className="space-y-6">
+          {companies && companies.length > 1 ? (
+            <div className="card">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <h2 className="font-bold text-brand-900">Regra de ouro</h2>
-                  <p className="mt-1 text-sm text-brand-800">
-                    O empregador deve ver resultados agregados, não respostas individuais. Isso aumenta confiança,
-                    reduz resistência dos trabalhadores e protege a empresa.
+                  <h2 className="text-lg font-bold text-gray-900">Empresa selecionada</h2>
+                  <p className="text-sm text-gray-500">
+                    O status abaixo muda conforme a empresa escolhida.
                   </p>
                 </div>
+                <select
+                  className="input md:max-w-sm"
+                  value={company?.id ?? ""}
+                  onChange={(event) => handleCompanyChange(event.target.value)}
+                >
+                  {companies.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
+          ) : null}
 
+          <section className="grid gap-4 md:grid-cols-3">
+            <MetricCard label="Empresa" value={company?.name ?? "Carregando"} helper={company?.cnpj ? `CNPJ ${company.cnpj}` : "aguardando dados"} />
+            <MetricCard label="Progresso real" value={`${progress}%`} helper={`${completed} feita(s), ${inProgress} em andamento, ${next} próxima(s)`} tone={progress >= 70 ? "green" : progress >= 35 ? "yellow" : "red"} />
+            <MetricCard label="Próximo passo" value={nextPhase?.id ?? "-"} helper={nextPhase?.title ?? "Aguardando empresa"} tone="brand" />
+          </section>
+
+          {anySecondaryLoading ? (
+            <div className="rounded-2xl border border-gray-200 bg-white p-3 text-sm text-gray-500">
+              Atualizando status da empresa...
+            </div>
+          ) : null}
+
+          <section className="grid gap-6 xl:grid-cols-[1fr_360px]">
             <div className="card">
-              <h2 className="text-lg font-bold text-gray-900">Checklist de obrigação prática</h2>
-              <div className="mt-4 space-y-3">
-                {OBLIGATIONS.map((item) => (
-                  <div key={item.title} className="flex gap-3">
-                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
-                    <div>
-                      <p className="text-sm font-semibold text-gray-900">{item.title}</p>
-                      <p className="text-xs text-gray-500">{item.detail}</p>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">Roadmap da empresa</h2>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Nada aqui é marcado como feito sem registro real no sistema.
+                  </p>
+                </div>
+                {nextPhase ? (
+                  <Link to={nextPhase.route} className="btn-primary hidden sm:inline-flex">
+                    {nextPhase.button} <ArrowRight className="h-4 w-4" />
+                  </Link>
+                ) : null}
+              </div>
+
+              <div className="mt-5 space-y-3">
+                {phases.map((phase) => {
+                  const cfg = STATUS_CONFIG[phase.status];
+
+                  return (
+                    <div key={phase.id} className="rounded-xl border border-gray-200 bg-white p-4">
+                      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="flex gap-3">
+                          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-sm font-bold ${cfg.dotClass}`}>
+                            {phase.status === "feito" ? <CheckCircle2 className="h-5 w-5" /> : phase.id}
+                          </div>
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="font-semibold text-gray-900">{phase.title}</h3>
+                              <StatusBadge tone={cfg.tone}>{cfg.label}</StatusBadge>
+                            </div>
+                            <p className="mt-1 text-sm text-gray-600">{phase.description}</p>
+                            <p className="mt-2 text-xs text-gray-500">
+                              <strong>Registro real:</strong> {phase.evidence}
+                            </p>
+                          </div>
+                        </div>
+
+                        <Link to={phase.route} className="btn-secondary whitespace-nowrap text-sm">
+                          {phase.button} <ArrowRight className="h-4 w-4" />
+                        </Link>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
-            <div className="card">
-              <h2 className="text-lg font-bold text-gray-900">Canais de resposta</h2>
-              <p className="mt-1 text-sm text-gray-500">
-                O app não depende só de WhatsApp. Suporta formas simples e auditáveis.
-              </p>
-              <div className="mt-4 grid gap-2">
-                {["Link individual", "QR Code individual", "E-mail", "Intranet", "Comunicado interno", "WhatsApp/Z-API opcional"].map((channel) => (
-                  <div key={channel} className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700">
-                    <Send className="h-4 w-4 text-gray-400" />
-                    {channel}
+            <aside className="space-y-6">
+              <div className="card border-brand-200 bg-brand-50">
+                <div className="flex gap-3">
+                  <Lock className="mt-1 h-5 w-5 text-brand-700" />
+                  <div>
+                    <h2 className="font-bold text-brand-900">Regra de ouro</h2>
+                    <p className="mt-1 text-sm text-brand-800">
+                      O empregador deve ver resultados agregados, não respostas individuais. Isso aumenta confiança
+                      e protege a empresa.
+                    </p>
                   </div>
-                ))}
+                </div>
               </div>
-            </div>
-          </aside>
-        </section>
-      </main>
-    </div>
+
+              <div className="card">
+                <h2 className="text-lg font-bold text-gray-900">Checklist de obrigação prática</h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Check verde só aparece quando há evidência real.
+                </p>
+                <div className="mt-4 space-y-3">
+                  {obligations.map((item) => (
+                    <div key={item.title} className="flex gap-3">
+                      {item.done ? (
+                        <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
+                      ) : (
+                        <HelpCircle className="mt-0.5 h-5 w-5 shrink-0 text-gray-400" />
+                      )}
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">{item.title}</p>
+                        <p className="text-xs text-gray-500">{item.detail}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="card">
+                <h2 className="text-lg font-bold text-gray-900">Canais de resposta</h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  O app não depende só de WhatsApp. Suporta formas simples e auditáveis.
+                </p>
+                <div className="mt-4 grid gap-2">
+                  {["Link individual", "QR Code individual", "E-mail", "Intranet", "Comunicado interno", "WhatsApp/Z-API opcional"].map((channel) => (
+                    <div key={channel} className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                      <Send className="h-4 w-4 text-gray-400" />
+                      {channel}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="card">
+                <h2 className="text-lg font-bold text-gray-900">Resumo da empresa</h2>
+                <div className="mt-4 grid gap-3">
+                  <MiniStat icon={<Building2 className="h-4 w-4" />} label="Empresa" value={hasCompany ? "ok" : "pendente"} />
+                  <MiniStat icon={<MessageSquare className="h-4 w-4" />} label="Respostas" value={String(responseCount)} />
+                  <MiniStat icon={<ClipboardCheck className="h-4 w-4" />} label="Riscos" value={String(inventoryCount)} />
+                  <MiniStat icon={<FileCheck className="h-4 w-4" />} label="Documentos" value={String(documentCount)} />
+                </div>
+              </div>
+            </aside>
+          </section>
+        </div>
+      )}
+    </AppShell>
   );
 }
 
-function MetricCard({ label, value, helper }: { label: string; value: string; helper: string }) {
+function MiniStat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div className="card">
-      <p className="text-sm text-gray-500">{label}</p>
-      <p className="mt-2 text-2xl font-bold text-gray-900">{value}</p>
-      <p className="mt-1 text-xs text-gray-500">{helper}</p>
+    <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-3 py-2">
+      <div className="flex items-center gap-2 text-sm text-gray-600">
+        {icon}
+        {label}
+      </div>
+      <span className="text-sm font-bold text-gray-900">{value}</span>
     </div>
   );
 }
