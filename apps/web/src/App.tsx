@@ -10,6 +10,7 @@ import Pricing from "./pages/Pricing";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import Onboarding from "./pages/Onboarding";
 import Dashboard from "./pages/Dashboard";
+import Clients from "./pages/Clients";
 import NR1Obligations from "./pages/NR1Obligations";
 import PsychosocialAssessment from "./pages/PsychosocialAssessment";
 import PublicPsychosocialResponse from "./pages/PublicPsychosocialResponse";
@@ -30,9 +31,7 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
   return (
     <>
       <SignedIn>{children}</SignedIn>
-      <SignedOut>
-        <RedirectToSignIn />
-      </SignedOut>
+      <SignedOut><RedirectToSignIn /></SignedOut>
     </>
   );
 }
@@ -43,127 +42,29 @@ export function App() {
       <Toaster position="top-right" />
       <Routes>
         <Route path="/" element={<Home />} />
-
         <Route path="/login/*" element={<Login />} />
         <Route path="/cadastro/*" element={<Signup />} />
         <Route path="/sair" element={<Logout />} />
         <Route path="/trocar-conta" element={<Logout />} />
-
         <Route path="/precos" element={<Pricing />} />
         <Route path="/pagamento/sucesso" element={<PaymentSuccess />} />
         <Route path="/acesso-funcionario" element={<EmployeeLogin />} />
         <Route path="/responder-avaliacao" element={<PublicPsychosocialResponse />} />
 
-        <Route
-          path="/debug-auth"
-          element={
-            <ProtectedRoute>
-              <DebugAuth />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/comecar"
-          element={
-            <ProtectedRoute>
-              <Onboarding />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/obrigacoes-nr1"
-          element={
-            <ProtectedRoute>
-              <NR1Obligations />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/achados-psicossociais"
-          element={
-            <ProtectedRoute>
-              <AssessmentFindings />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/avaliacao-psicossocial"
-          element={
-            <ProtectedRoute>
-              <PsychosocialAssessment />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/inventario-riscos"
-          element={
-            <ProtectedRoute>
-              <RiskInventory />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/documentos-assinaturas"
-          element={
-            <ProtectedRoute>
-              <DocumentsSignatures />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/funcionarios"
-          element={
-            <ProtectedRoute>
-              <Employees />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/documentos"
-          element={
-            <ProtectedRoute>
-              <Documents />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/denuncias"
-          element={
-            <ProtectedRoute>
-              <Complaints />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/painel-defesa"
-          element={
-            <ProtectedRoute>
-              <DefensePanel />
-            </ProtectedRoute>
-          }
-        />
-
+        <Route path="/debug-auth" element={<ProtectedRoute><DebugAuth /></ProtectedRoute>} />
+        <Route path="/comecar" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
+        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/clientes" element={<ProtectedRoute><Clients /></ProtectedRoute>} />
+        <Route path="/obrigacoes-nr1" element={<ProtectedRoute><NR1Obligations /></ProtectedRoute>} />
+        <Route path="/achados-psicossociais" element={<ProtectedRoute><AssessmentFindings /></ProtectedRoute>} />
+        <Route path="/avaliacao-psicossocial" element={<ProtectedRoute><PsychosocialAssessment /></ProtectedRoute>} />
+        <Route path="/inventario-riscos" element={<ProtectedRoute><RiskInventory /></ProtectedRoute>} />
+        <Route path="/documentos-assinaturas" element={<ProtectedRoute><DocumentsSignatures /></ProtectedRoute>} />
+        <Route path="/funcionarios" element={<ProtectedRoute><Employees /></ProtectedRoute>} />
+        <Route path="/documentos" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
+        <Route path="/denuncias" element={<ProtectedRoute><Complaints /></ProtectedRoute>} />
+        <Route path="/painel-defesa" element={<ProtectedRoute><DefensePanel /></ProtectedRoute>} />
         <Route path="/portal/*" element={<EmployeePortal />} />
-
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
