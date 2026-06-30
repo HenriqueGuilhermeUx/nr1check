@@ -8,6 +8,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Pricing from "./pages/Pricing";
 import PaymentSuccess from "./pages/PaymentSuccess";
+import PixPayment from "./pages/PixPayment";
 import Onboarding from "./pages/Onboarding";
 import Dashboard from "./pages/Dashboard";
 import Clients from "./pages/Clients";
@@ -48,6 +49,7 @@ export function App() {
         <Route path="/trocar-conta" element={<Logout />} />
         <Route path="/precos" element={<Pricing />} />
         <Route path="/pagamento/sucesso" element={<PaymentSuccess />} />
+        <Route path="/pagamento/pix/:paymentId" element={<ProtectedRoute><PixPayment /></ProtectedRoute>} />
         <Route path="/acesso-funcionario" element={<EmployeeLogin />} />
         <Route path="/responder-avaliacao" element={<PublicPsychosocialResponse />} />
 
