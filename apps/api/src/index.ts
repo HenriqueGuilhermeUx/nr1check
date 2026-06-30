@@ -8,6 +8,7 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { appRouter } from "./routers";
 import { createContext } from "./context";
 import { registerStripeWebhook } from "./webhooks/stripe";
+import { registerWooviWebhook } from "./webhooks/woovi";
 import { registerClerkWebhook } from "./webhooks/clerk";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -65,8 +66,9 @@ async function startServer() {
     }),
   );
 
-  // Webhooks ANTES do express.json() (precisam do body raw)
+  // Webhooks ANTES do express.json() global.
   registerStripeWebhook(app);
+  registerWooviWebhook(app);
   registerClerkWebhook(app);
 
   app.use(express.json({ limit: "50mb" }));
@@ -149,6 +151,7 @@ async function startServer() {
     console.log(`🚀 NR1Check API rodando em http://localhost:${port}`);
     console.log(`📡 tRPC endpoint: http://localhost:${port}/api/trpc`);
     console.log(`🔐 Auth debug: http://localhost:${port}/api/auth-debug`);
+    console.log(`💠 Woovi webhook: http://localhost:${port}/webhooks/woovi`);
   });
 }
 
