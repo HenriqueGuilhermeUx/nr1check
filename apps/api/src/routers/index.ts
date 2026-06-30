@@ -9,6 +9,7 @@ import { complaintRouter } from "./complaint";
 import { pgrRouter } from "./pgr";
 import { complianceRouter } from "./compliance";
 import { stripeRouter } from "./stripe";
+import { wooviRouter } from "./woovi";
 import { notificationRouter } from "./notification";
 
 export const appRouter = router({
@@ -22,6 +23,7 @@ export const appRouter = router({
   pgr: pgrRouter,
   compliance: complianceRouter,
   stripe: stripeRouter,
+  woovi: wooviRouter,
   notification: notificationRouter,
 });
 
