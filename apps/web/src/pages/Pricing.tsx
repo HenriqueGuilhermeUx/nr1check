@@ -19,7 +19,7 @@ const PLANS = [
       "Avaliação psicossocial",
       "Inventário e plano de ação",
       "Documentos básicos",
-      "Painel de pendências",
+      "Pagamento por Pix Woovi",
     ],
   },
   {
@@ -34,7 +34,7 @@ const PLANS = [
       "Documentos assináveis",
       "Canal de relatos",
       "Painel de defesa",
-      "Suporte prioritário",
+      "Pagamento por Pix Woovi",
     ],
     highlighted: true,
   },
@@ -50,7 +50,7 @@ const PLANS = [
       "Importação de trabalhadores por CSV",
       "Status NR-1 por empresa",
       "R$ 29/mês por empresa adicional",
-      "Acima de 30 empresas: sob consulta",
+      "Pagamento por Pix Woovi",
     ],
     accountant: true,
   },
@@ -60,22 +60,27 @@ export default function Pricing() {
   const { isSignedIn } = useUser();
   const navigate = useNavigate();
   const utils = trpc.useUtils();
-  const createCheckout = trpc.stripe.createCheckout.useMutation({
+
+  const createPixCharge = trpc.woovi.createPixCharge.useMutation({
     onSuccess: (data) => {
-      if (data.checkoutUrl) window.location.href = data.checkoutUrl;
+      navigate(`/pagamento/pix/${data.paymentId}`);
     },
     onError: (err) => toast.error(err.message),
   });
 
   const handleSubscribe = async (planId: "nr1_solo" | "nr1_pro" | "contador") => {
-    if (planId === "contador") {
-      window.localStorage.setItem("nr1check:user-mode", "contador");
-      navigate(isSignedIn ? "/clientes" : "/cadastro");
+    if (!isSignedIn) {
+      if (planId === "contador") {
+        window.localStorage.setItem("nr1check:user-mode", "contador");
+      }
+
+      navigate("/cadastro");
       return;
     }
 
-    if (!isSignedIn) {
-      navigate("/cadastro");
+    if (planId === "contador") {
+      window.localStorage.setItem("nr1check:user-mode", "contador");
+      createPixCharge.mutate({ planId });
       return;
     }
 
@@ -87,10 +92,9 @@ export default function Pricing() {
       return;
     }
 
-    createCheckout.mutate({
+    createPixCharge.mutate({
       companyId: companies[0].id,
       planId,
-      origin: window.location.origin,
     });
   };
 
@@ -110,9 +114,12 @@ export default function Pricing() {
 
       <div className="mx-auto max-w-6xl px-6 py-16">
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900">Planos simples</h1>
+          <span className="inline-flex rounded-full bg-brand-100 px-3 py-1 text-xs font-semibold text-brand-700">
+            Cobrança Pix automática via Woovi
+          </span>
+          <h1 className="mt-4 text-4xl font-bold text-gray-900">Planos simples</h1>
           <p className="mt-3 text-lg text-gray-600">
-            Para empresa pequena, PME e contador que atende várias empresas.
+            Escolha o plano, pague por Pix e o sistema libera automaticamente após confirmação.
           </p>
         </div>
 
@@ -147,10 +154,10 @@ export default function Pricing() {
 
               <button
                 onClick={() => handleSubscribe(p.id as "nr1_solo" | "nr1_pro" | "contador")}
-                disabled={createCheckout.isPending}
+                disabled={createPixCharge.isPending}
                 className={`mt-6 w-full ${p.highlighted ? "btn-primary" : "btn-secondary"}`}
               >
-                {createCheckout.isPending ? "Redirecionando..." : p.accountant ? "Começar como contador" : "Assinar agora"}
+                {createPixCharge.isPending ? "Gerando Pix..." : "Pagar com Pix"}
               </button>
             </div>
           ))}
