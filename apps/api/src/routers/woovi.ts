@@ -7,29 +7,10 @@ import { protectedProcedure, router } from "../trpc";
 
 type PixPlanId = "nr1_solo" | "nr1_pro" | "contador";
 
-const PIX_PLANS: Record<
-  PixPlanId,
-  {
-    name: string;
-    amountCents: number;
-    scope: "company" | "accountant";
-  }
-> = {
-  nr1_solo: {
-    name: "NR1Check Empresa Solo",
-    amountCents: 7900,
-    scope: "company",
-  },
-  nr1_pro: {
-    name: "NR1Check PME Pro",
-    amountCents: 13900,
-    scope: "company",
-  },
-  contador: {
-    name: "NR1Check Contador",
-    amountCents: 19900,
-    scope: "accountant",
-  },
+const PIX_PLANS: Record<PixPlanId, { name: string; amountCents: number; scope: "company" | "accountant" }> = {
+  nr1_solo: { name: "NR1Check Empresa Solo", amountCents: 7900, scope: "company" },
+  nr1_pro: { name: "NR1Check PME Pro", amountCents: 13900, scope: "company" },
+  contador: { name: "NR1Check Contador", amountCents: 19900, scope: "accountant" },
 };
 
 type WooviChargeResponse = {
@@ -45,9 +26,7 @@ type WooviChargeResponse = {
     paymentLinkUrl?: string;
     paymentLink?: string;
   };
-  data?: {
-    charge?: WooviChargeResponse["charge"];
-  };
+  data?: { charge?: WooviChargeResponse["charge"] };
   errors?: Array<{ message?: string }>;
 };
 
@@ -56,10 +35,7 @@ function getWooviConfig() {
   const baseUrl = process.env.WOOVI_API_URL || "https://api.woovi.com/api/v1";
 
   if (!appId) {
-    throw new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: "WOOVI_APP_ID não configurado no Render",
-    });
+    throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "WOOVI_APP_ID não configurado no Render" });
   }
 
   return { appId, baseUrl };
@@ -76,24 +52,10 @@ function buildPaymentLink(charge: NonNullable<ReturnType<typeof getCharge>>) {
   return null;
 }
 
-function makeCorrelationID({
-  scope,
-  userId,
-  companyId,
-  planId,
-}: {
-  scope: "company" | "accountant";
-  userId: number;
-  companyId?: number | null;
-  planId: PixPlanId;
-}) {
+function makeCorrelationID({ scope, userId, companyId, planId }: { scope: "company" | "accountant"; userId: number; companyId?: number | null; planId: PixPlanId }) {
   const timestamp = Date.now();
   const random = Math.random().toString(36).slice(2, 8);
-
-  if (scope === "company") {
-    return `nr1_company_${companyId}_${planId}_${timestamp}_${random}`;
-  }
-
+  if (scope === "company") return `nr1_company_${companyId}_${planId}_${timestamp}_${random}`;
   return `nr1_accountant_${userId}_${planId}_${timestamp}_${random}`;
 }
 
@@ -176,60 +138,32 @@ async function findPayment(paymentId: number, userId: number) {
   return rows?.[0] ?? null;
 }
 
+function isActiveStatus(status?: string | null) {
+  return status === "active" || status === "trialing" || status === "paid";
+}
+
 export const wooviRouter = router({
   createPixCharge: protectedProcedure
-    .input(
-      z.object({
-        planId: z.enum(["nr1_solo", "nr1_pro", "contador"]),
-        companyId: z.number().optional(),
-      }),
-    )
+    .input(z.object({ planId: z.enum(["nr1_solo", "nr1_pro", "contador"]), companyId: z.number().optional() }))
     .mutation(async ({ ctx, input }) => {
       const plan = PIX_PLANS[input.planId];
-
-      if (!plan) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Plano inválido" });
-      }
+      if (!plan) throw new TRPCError({ code: "BAD_REQUEST", message: "Plano inválido" });
 
       let companyName: string | null = null;
 
       if (plan.scope === "company") {
-        if (!input.companyId) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Informe a empresa para assinar este plano",
-          });
-        }
+        if (!input.companyId) throw new TRPCError({ code: "BAD_REQUEST", message: "Informe a empresa para assinar este plano" });
 
-        const [company] = await db
-          .select()
-          .from(companies)
-          .where(eq(companies.id, input.companyId))
-          .limit(1);
-
+        const [company] = await db.select().from(companies).where(eq(companies.id, input.companyId)).limit(1);
         if (!company || company.ownerId !== ctx.user.id) {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "Empresa não pertence a este usuário",
-          });
+          throw new TRPCError({ code: "FORBIDDEN", message: "Empresa não pertence a este usuário" });
         }
-
         companyName = company.name;
       }
 
       const { appId, baseUrl } = getWooviConfig();
-
-      const correlationID = makeCorrelationID({
-        scope: plan.scope,
-        userId: ctx.user.id,
-        companyId: input.companyId ?? null,
-        planId: input.planId,
-      });
-
-      const comment =
-        plan.scope === "company"
-          ? `${plan.name} - ${companyName ?? "Empresa"}`
-          : `${plan.name} - ${ctx.user.email}`;
+      const correlationID = makeCorrelationID({ scope: plan.scope, userId: ctx.user.id, companyId: input.companyId ?? null, planId: input.planId });
+      const comment = plan.scope === "company" ? `${plan.name} - ${companyName ?? "Empresa"}` : `${plan.name} - ${ctx.user.email}`;
 
       const payload = {
         correlationID,
@@ -243,37 +177,21 @@ export const wooviRouter = router({
 
       const response = await fetch(`${baseUrl}/charge`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: appId,
-        },
+        headers: { "Content-Type": "application/json", Authorization: appId },
         body: JSON.stringify(payload),
       });
 
       const json = (await response.json()) as WooviChargeResponse;
 
       if (!response.ok) {
-        const message =
-          json.errors?.map((error) => error.message).filter(Boolean).join(", ") ||
-          `Erro Woovi HTTP ${response.status}`;
-
-        throw new TRPCError({
-          code: "BAD_GATEWAY",
-          message,
-        });
+        const message = json.errors?.map((error) => error.message).filter(Boolean).join(", ") || `Erro Woovi HTTP ${response.status}`;
+        throw new TRPCError({ code: "BAD_GATEWAY", message });
       }
 
       const charge = getCharge(json);
-
-      if (!charge) {
-        throw new TRPCError({
-          code: "BAD_GATEWAY",
-          message: "Woovi não retornou cobrança",
-        });
-      }
+      if (!charge) throw new TRPCError({ code: "BAD_GATEWAY", message: "Woovi não retornou cobrança" });
 
       const paymentLinkUrl = buildPaymentLink(charge);
-
       const paymentId = await insertPayment({
         userId: ctx.user.id,
         companyId: input.companyId ?? null,
@@ -308,13 +226,7 @@ export const wooviRouter = router({
     .input(z.object({ paymentId: z.number() }))
     .query(async ({ ctx, input }) => {
       const payment = await findPayment(input.paymentId, ctx.user.id);
-
-      if (!payment) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Pagamento não encontrado",
-        });
-      }
+      if (!payment) throw new TRPCError({ code: "NOT_FOUND", message: "Pagamento não encontrado" });
 
       return {
         id: Number(payment.id),
@@ -334,4 +246,62 @@ export const wooviRouter = router({
         isPaid: payment.status === "paid" || payment.status === "completed" || payment.status === "active",
       };
     }),
+
+  billingStatus: protectedProcedure.query(async ({ ctx }) => {
+    const userResult = await db.execute(sql`
+      select id, email, billing_provider, billing_plan, billing_status
+      from users
+      where id = ${ctx.user.id}
+      limit 1
+    `);
+
+    const userRows = Array.isArray(userResult) ? userResult : (userResult as any).rows;
+    const user = userRows?.[0];
+
+    const companiesResult = await db.execute(sql`
+      select
+        id,
+        name,
+        billing_provider,
+        billing_plan,
+        billing_status,
+        stripe_status,
+        stripe_plan
+      from companies
+      where owner_id = ${ctx.user.id}
+      order by id asc
+    `);
+
+    const companyRows = Array.isArray(companiesResult) ? companiesResult : (companiesResult as any).rows;
+    const accountStatus = user?.billing_status as string | null;
+    const accountPlan = user?.billing_plan as string | null;
+
+    const mappedCompanies = (companyRows ?? []).map((company: any) => {
+      const billingStatus = company.billing_status as string | null;
+      const stripeStatus = company.stripe_status as string | null;
+
+      return {
+        id: Number(company.id),
+        name: company.name as string,
+        billingProvider: company.billing_provider as string | null,
+        billingPlan: company.billing_plan as string | null,
+        billingStatus,
+        stripeStatus,
+        stripePlan: company.stripe_plan as string | null,
+        isActive: isActiveStatus(billingStatus) || isActiveStatus(stripeStatus),
+      };
+    });
+
+    return {
+      accountant: {
+        billingProvider: user?.billing_provider as string | null,
+        billingPlan: accountPlan,
+        billingStatus: accountStatus,
+        isActive: accountPlan === "contador" && isActiveStatus(accountStatus),
+      },
+      companies: mappedCompanies,
+      hasActiveCompany: mappedCompanies.some((company: any) => company.isActive),
+      hasAnyActiveBilling: (accountPlan === "contador" && isActiveStatus(accountStatus)) || mappedCompanies.some((company: any) => company.isActive),
+    };
+  }),
 });
