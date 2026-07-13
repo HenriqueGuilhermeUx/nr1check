@@ -4,6 +4,7 @@ import { SignedIn, SignedOut, RedirectToSignIn } from "@clerk/clerk-react";
 import { Toaster } from "react-hot-toast";
 
 import Home from "./pages/Home";
+import MobileApp from "./pages/MobileApp";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Pricing from "./pages/Pricing";
@@ -55,6 +56,7 @@ export function App() {
       <Toaster position="top-right" />
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/app" element={<MobileApp />} />
         <Route path="/login/*" element={<Login />} />
         <Route path="/cadastro/*" element={<Signup />} />
         <Route path="/sair" element={<Logout />} />
