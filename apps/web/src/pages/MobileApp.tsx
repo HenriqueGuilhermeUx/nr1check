@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useUser } from "@clerk/clerk-react";
 import {
@@ -172,7 +173,7 @@ function RoleCard({
   tone,
   onPrimaryClick,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   title: string;
   description: string;
   badge: string;
@@ -237,7 +238,7 @@ function Step({ number, title }: { number: string; title: string }) {
   );
 }
 
-function Feature({ icon, label }: { icon: React.ReactNode; label: string }) {
+function Feature({ icon, label }: { icon: ReactNode; label: string }) {
   return (
     <div className="flex items-center gap-3 rounded-2xl bg-white/5 px-3 py-3 text-sm text-gray-200">
       <div className="text-brand-200">{icon}</div>
