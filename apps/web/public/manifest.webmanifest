@@ -1,0 +1,41 @@
+{
+  "name": "NR1Check",
+  "short_name": "NR1Check",
+  "description": "NR-1 psicossocial para empresas, funcionários e contadores.",
+  "start_url": "/app",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#020617",
+  "theme_color": "#0f172a",
+  "lang": "pt-BR",
+  "categories": ["business", "productivity", "health"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Responder avaliação",
+      "short_name": "Avaliação",
+      "description": "Responder avaliação psicossocial",
+      "url": "/responder-avaliacao"
+    },
+    {
+      "name": "Cockpit da empresa",
+      "short_name": "Cockpit",
+      "description": "Abrir painel da empresa",
+      "url": "/dashboard"
+    },
+    {
+      "name": "Clientes contador",
+      "short_name": "Clientes",
+      "description": "Abrir clientes do contador",
+      "url": "/clientes"
+    }
+  ]
+}
