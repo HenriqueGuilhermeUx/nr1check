@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   ClipboardCheck,
   FileCheck,
-  Home,
   Lock,
   MessageSquare,
   QrCode,
@@ -20,8 +19,19 @@ import {
 const COMPANY_NAME = "Alternative Ventures Ltda";
 const COMPANY_CNPJ = "61.920.356/0001-38";
 
+function withCompanyId(path: string, companyId: string | null) {
+  if (!companyId) return path;
+  const separator = path.includes("?") ? "&" : "?";
+  return `${path}${separator}companyId=${encodeURIComponent(companyId)}`;
+}
+
 export default function MobileApp() {
   const { isSignedIn, user } = useUser();
+  const params = new URLSearchParams(window.location.search);
+  const companyId = params.get("companyId");
+
+  const employeeAccessPath = withCompanyId("/acesso-funcionario", companyId);
+  const employeeAssessmentPath = withCompanyId("/responder-avaliacao", companyId);
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
@@ -57,11 +67,18 @@ export default function MobileApp() {
           </p>
 
           <div className="mt-5 grid grid-cols-3 gap-2 text-center">
-            <MiniStat value="3" label="perfis" />
+            <MiniStat value="CPF" label="validado" />
             <MiniStat value="Pix" label="Woovi" />
             <MiniStat value="PWA" label="instalável" />
           </div>
         </section>
+
+        {companyId ? (
+          <div className="mt-4 rounded-3xl border border-green-400/20 bg-green-500/10 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-green-200">Link da empresa identificado</p>
+            <p className="mt-1 text-sm font-semibold text-white">Código da empresa: {companyId}</p>
+          </div>
+        ) : null}
 
         {isSignedIn ? (
           <div className="mt-4 rounded-3xl border border-white/10 bg-white/5 p-4">
@@ -74,31 +91,31 @@ export default function MobileApp() {
           <RoleCard
             icon={<Users className="h-6 w-6" />}
             title="Sou funcionário"
-            description="Responder avaliação, enviar relato e confirmar ciência de documentos."
-            badge="Sem painel complexo"
-            primaryLabel="Responder avaliação"
-            primaryTo="/responder-avaliacao"
-            secondaryLabel="Acesso funcionário"
-            secondaryTo="/acesso-funcionario"
+            description="Entrar com CPF cadastrado, responder avaliação, enviar relato e confirmar ciência de documentos."
+            badge="CPF + código"
+            primaryLabel="Entrar como funcionário"
+            primaryTo={employeeAccessPath}
+            secondaryLabel="Responder avaliação"
+            secondaryTo={employeeAssessmentPath}
             tone="green"
           />
 
           <RoleCard
             icon={<Building2 className="h-6 w-6" />}
             title="Sou dono, RH ou gestor"
-            description="Ver o que falta, importar equipe, enviar avaliação e baixar documentos."
-            badge="Cockpit da empresa"
+            description="Ver o que falta, importar equipe, enviar link do app aos funcionários e baixar documentos."
+            badge="Contratante"
             primaryLabel={isSignedIn ? "Abrir cockpit" : "Começar empresa"}
             primaryTo={isSignedIn ? "/dashboard" : "/cadastro"}
-            secondaryLabel="Ver preços"
-            secondaryTo="/precos"
+            secondaryLabel={isSignedIn ? "Enviar link" : "Ver preços"}
+            secondaryTo={isSignedIn ? "/convite-funcionarios" : "/precos"}
             tone="blue"
           />
 
           <RoleCard
             icon={<ClipboardCheck className="h-6 w-6" />}
             title="Sou contador ou consultor"
-            description="Cadastrar clientes, importar folha e acompanhar status por empresa."
+            description="Cadastrar clientes, importar folha e acompanhar status por empresa. Mantido como opção complementar."
             badge="Multiempresas"
             primaryLabel={isSignedIn ? "Abrir clientes" : "Criar conta contador"}
             primaryTo={isSignedIn ? "/clientes" : "/cadastro"}
@@ -133,7 +150,7 @@ export default function MobileApp() {
             <Feature icon={<MessageSquare className="h-4 w-4" />} label="Canal de relatos" />
             <Feature icon={<FileCheck className="h-4 w-4" />} label="Documentos e ciência" />
             <Feature icon={<CheckCircle2 className="h-4 w-4" />} label="Checklist do patrão" />
-            <Feature icon={<Zap className="h-4 w-4" />} label="Acesso rápido para contador" />
+            <Feature icon={<Zap className="h-4 w-4" />} label="Link para funcionário por empresa" />
             <Feature icon={<Lock className="h-4 w-4" />} label="Áreas pagas protegidas por Woovi" />
           </div>
         </section>
@@ -207,7 +224,7 @@ function RoleCard({
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
+      <div className="mt-4 grid grid-cols-1 gap-2">
         <Link
           to={primaryTo}
           onClick={onPrimaryClick}
@@ -219,8 +236,7 @@ function RoleCard({
           to={secondaryTo}
           className="inline-flex items-center justify-center rounded-2xl border border-white/10 px-4 py-3 text-sm font-bold text-white"
         >
-          <Home className="h-4 w-4" />
-          <span className="sr-only">{secondaryLabel}</span>
+          {secondaryLabel}
         </Link>
       </div>
     </div>
