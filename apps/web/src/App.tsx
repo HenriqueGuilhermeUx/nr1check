@@ -13,6 +13,7 @@ import PixPayment from "./pages/PixPayment";
 import Onboarding from "./pages/Onboarding";
 import Dashboard from "./pages/Dashboard";
 import Clients from "./pages/Clients";
+import EmployeeInvite from "./pages/EmployeeInvite";
 import NR1Obligations from "./pages/NR1Obligations";
 import PsychosocialAssessment from "./pages/PsychosocialAssessment";
 import PublicPsychosocialResponse from "./pages/PublicPsychosocialResponse";
@@ -75,6 +76,7 @@ export function App() {
 
         <Route path="/dashboard" element={<PaidRoute><Dashboard /></PaidRoute>} />
         <Route path="/clientes" element={<PaidRoute mode="accountant"><Clients /></PaidRoute>} />
+        <Route path="/convite-funcionarios" element={<PaidRoute mode="company"><EmployeeInvite /></PaidRoute>} />
         <Route path="/obrigacoes-nr1" element={<PaidRoute><NR1Obligations /></PaidRoute>} />
         <Route path="/achados-psicossociais" element={<PaidRoute><AssessmentFindings /></PaidRoute>} />
         <Route path="/avaliacao-psicossocial" element={<PaidRoute><PsychosocialAssessment /></PaidRoute>} />
