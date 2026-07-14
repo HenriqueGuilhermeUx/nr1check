@@ -1,0 +1,43 @@
+plugins {
+    id "com.android.application"
+}
+
+def hasReleaseSigning = project.hasProperty("RELEASE_STORE_FILE") &&
+    project.hasProperty("RELEASE_STORE_PASSWORD") &&
+    project.hasProperty("RELEASE_KEY_ALIAS") &&
+    project.hasProperty("RELEASE_KEY_PASSWORD")
+
+android {
+    namespace "br.com.nr1check.app"
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "br.com.nr1check.app"
+        minSdk 23
+        targetSdk 35
+        versionCode 1
+        versionName "1.0.0"
+    }
+
+    signingConfigs {
+        release {
+            if (hasReleaseSigning) {
+                storeFile file(project.property("RELEASE_STORE_FILE"))
+                storePassword project.property("RELEASE_STORE_PASSWORD")
+                keyAlias project.property("RELEASE_KEY_ALIAS")
+                keyPassword project.property("RELEASE_KEY_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            shrinkResources false
+            signingConfig hasReleaseSigning ? signingConfigs.release : signingConfigs.debug
+        }
+        debug {
+            debuggable true
+        }
+    }
+}
