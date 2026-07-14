@@ -1,0 +1,24 @@
+NR1Check é uma plataforma de apoio à organização da NR-1 psicossocial para empresas brasileiras.
+
+O app permite uma experiência simples no celular para três públicos:
+
+Funcionários:
+- Acesso com CPF cadastrado pela empresa
+- Resposta de avaliação psicossocial
+- Canal de relatos
+- Ciência de documentos e comunicados
+
+Patrões, RH e gestores:
+- Cockpit da empresa
+- Checklist do que falta fazer
+- Importação de trabalhadores
+- Envio de link do app aos funcionários
+- Acompanhamento de avaliação, plano de ação e documentos
+
+Contadores e consultores:
+- Acesso complementar para multiempresas
+- Cadastro de clientes
+- Status por empresa
+- Importação de folha por CSV
+
+O NR1Check não realiza diagnóstico médico individual e não substitui profissional legalmente habilitado, médico, psicólogo, técnico ou engenheiro de segurança, advogado ou consultor especializado. A plataforma organiza dados, fluxos, documentos e evidências para apoiar a gestão empresarial.
