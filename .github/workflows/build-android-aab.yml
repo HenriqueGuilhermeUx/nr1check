@@ -1,4 +1,4 @@
-name: Build Android AAB
+name: Build Android APK and AAB
 
 on:
   workflow_dispatch:
@@ -20,42 +20,58 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Install Android platform 36
+        run: |
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+
       - name: Install Gradle
         run: |
-          curl -L https://services.gradle.org/distributions/gradle-8.9-bin.zip -o /tmp/gradle.zip
+          curl -L https://services.gradle.org/distributions/gradle-8.12-bin.zip -o /tmp/gradle.zip
           unzip -q /tmp/gradle.zip -d /tmp/gradle
-          echo "/tmp/gradle/gradle-8.9/bin" >> $GITHUB_PATH
+          echo "/tmp/gradle/gradle-8.12/bin" >> $GITHUB_PATH
 
-      - name: Generate upload keystore
+      - name: Prepare upload keystore
         working-directory: apps/android
         run: |
-          STORE_PASS=$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | head -c 24)
-          KEY_PASS=$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | head -c 24)
-          keytool -genkeypair \
-            -v \
-            -keystore upload-keystore.jks \
-            -storepass "$STORE_PASS" \
-            -alias nr1check-upload \
-            -keypass "$KEY_PASS" \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -dname "CN=NR1Check, OU=Alternative Ventures, O=Alternative Ventures Ltda, L=Santos, ST=SP, C=BR"
-          echo "RELEASE_STORE_PASSWORD=$STORE_PASS" >> $GITHUB_ENV
-          echo "RELEASE_KEY_PASSWORD=$KEY_PASS" >> $GITHUB_ENV
-          echo "STORE_PASSWORD=$STORE_PASS" > upload-keystore-passwords.txt
-          echo "KEY_PASSWORD=$KEY_PASS" >> upload-keystore-passwords.txt
-          echo "KEY_ALIAS=nr1check-upload" >> upload-keystore-passwords.txt
+          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "Using ANDROID_KEYSTORE_BASE64 secret"
+            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > upload-keystore.jks
+            echo "RELEASE_STORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
+            echo "RELEASE_KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD }}" >> $GITHUB_ENV
+            echo "RELEASE_KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}" >> $GITHUB_ENV
+            echo "Keystore loaded from GitHub Secrets" > upload-keystore-passwords.txt
+            echo "KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}" >> upload-keystore-passwords.txt
+          else
+            echo "No production keystore secrets found. Generating temporary upload keystore artifact. Keep it if you publish this first build."
+            STORE_PASS=$(openssl rand -base64 32 | tr -dc 'A-Za-z0-9' | head -c 28)
+            KEY_PASS=$(openssl rand -base64 32 | tr -dc 'A-Za-z0-9' | head -c 28)
+            keytool -genkeypair \
+              -v \
+              -keystore upload-keystore.jks \
+              -storepass "$STORE_PASS" \
+              -alias nr1check-upload \
+              -keypass "$KEY_PASS" \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=NR1Check, OU=Alternative Ventures, O=Alternative Ventures Ltda, L=Santos, ST=SP, C=BR"
+            echo "RELEASE_STORE_PASSWORD=$STORE_PASS" >> $GITHUB_ENV
+            echo "RELEASE_KEY_PASSWORD=$KEY_PASS" >> $GITHUB_ENV
+            echo "RELEASE_KEY_ALIAS=nr1check-upload" >> $GITHUB_ENV
+            echo "STORE_PASSWORD=$STORE_PASS" > upload-keystore-passwords.txt
+            echo "KEY_PASSWORD=$KEY_PASS" >> upload-keystore-passwords.txt
+            echo "KEY_ALIAS=nr1check-upload" >> upload-keystore-passwords.txt
+          fi
 
-      - name: Build release AAB
+      - name: Build test APK and release AAB
         working-directory: apps/android
         run: |
-          gradle bundleRelease \
+          gradle :app:assembleDebug :app:assembleRelease :app:bundleRelease \
             -PRELEASE_STORE_FILE=$PWD/upload-keystore.jks \
             -PRELEASE_STORE_PASSWORD=$RELEASE_STORE_PASSWORD \
-            -PRELEASE_KEY_ALIAS=nr1check-upload \
+            -PRELEASE_KEY_ALIAS=$RELEASE_KEY_ALIAS \
             -PRELEASE_KEY_PASSWORD=$RELEASE_KEY_PASSWORD \
-            --no-daemon
+            --no-daemon --stacktrace
 
       - name: Generate Play Store images
         run: |
@@ -65,16 +81,19 @@ jobs:
 
       - name: Collect artifacts
         run: |
-          mkdir -p android-release
-          cp apps/android/app/build/outputs/bundle/release/app-release.aab android-release/NR1Check-v1.0.0.aab
-          cp apps/android/upload-keystore.jks android-release/upload-keystore.jks
-          cp apps/android/upload-keystore-passwords.txt android-release/upload-keystore-passwords.txt
-          cp -R play-store/generated android-release/play-store-images
-          cp -R play-store/listing android-release/play-store-listing
+          mkdir -p android-release/apk android-release/aab android-release/signing android-release/play-store
+          cp apps/android/app/build/outputs/apk/debug/app-debug.apk android-release/apk/NR1Check-teste-debug.apk
+          cp apps/android/app/build/outputs/apk/release/app-release.apk android-release/apk/NR1Check-release.apk
+          cp apps/android/app/build/outputs/bundle/release/app-release.aab android-release/aab/NR1Check-v1.0.0.aab
+          cp apps/android/upload-keystore.jks android-release/signing/upload-keystore.jks
+          cp apps/android/upload-keystore-passwords.txt android-release/signing/upload-keystore-passwords.txt
+          cp -R play-store/generated android-release/play-store/images
+          cp -R play-store/listing android-release/play-store/listing
+          cp README_ANDROID_GOOGLE_PLAY.md android-release/README_ANDROID_GOOGLE_PLAY.md
 
-      - name: Upload Android release bundle
+      - name: Upload Android APK/AAB package
         uses: actions/upload-artifact@v4
         with:
-          name: nr1check-google-play-release
+          name: nr1check-android-apk-aab-google-play
           path: android-release
           retention-days: 14
