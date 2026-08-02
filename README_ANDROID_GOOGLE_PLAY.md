@@ -1,70 +1,161 @@
 # NR1Check Android / Google Play
 
-Este repositório agora inclui um app Android simples em WebView apontando para:
+Este repositório inclui um app Android simples e objetivo, usando WebView seguro para abrir a experiência mobile:
 
 ```txt
-https://nr1check.netlify.app/app
+https://nr1check.netlify.app/app?source=android
 ```
 
-A ideia é manter o PWA como opção imediata e gerar um AAB para publicar na Google Play.
+A estratégia de lançamento é dupla:
 
-## Como gerar o AAB no GitHub
+1. **PWA imediato**: clientes usam pelo navegador e adicionam à tela inicial.
+2. **App Android oficial**: APK para teste e AAB para Google Play.
 
-1. Abra o repositório no GitHub.
-2. Vá em `Actions`.
-3. Selecione `Build Android AAB`.
-4. Clique em `Run workflow`.
-5. Aguarde terminar.
-6. Baixe o artifact chamado:
+## O que o app entrega no dia a dia
+
+### Funcionários
+
+- Acesso por link da empresa.
+- CPF cadastrado pela empresa.
+- Código/token de acesso.
+- Avaliação psicossocial.
+- Canal de relatos.
+- Documentos/comunicados e ciência.
+
+### Patrões, RH e gestores
+
+- Cockpit da empresa.
+- Checklist do que falta fazer.
+- Importação/cadastro de funcionários.
+- Link pronto para enviar aos trabalhadores.
+- Acompanhamento de avaliação, plano e documentos.
+
+### Contadores e consultores
+
+- Mantido como opção complementar.
+- Multiempresas.
+- Cadastro de clientes.
+- Importação de folha/CSV.
+- Status por cliente.
+
+## Como gerar APK e AAB
+
+No GitHub:
 
 ```txt
-nr1check-google-play-release
+Actions → Build Android APK and AAB → Run workflow
+```
+
+Baixe o artifact:
+
+```txt
+nr1check-android-apk-aab-google-play
 ```
 
 Dentro dele haverá:
 
 ```txt
-NR1Check-v1.0.0.aab
-upload-keystore.jks
-upload-keystore-passwords.txt
-play-store-images/
-play-store-listing/
+apk/NR1Check-teste-debug.apk
+apk/NR1Check-release.apk
+aab/NR1Check-v1.0.0.aab
+signing/upload-keystore.jks
+signing/upload-keystore-passwords.txt
+play-store/images/
+play-store/listing/
 ```
 
-## Muito importante sobre a chave
+## Qual arquivo usar
 
-O arquivo `upload-keystore.jks` é a chave de upload do app.
+### Para testar em celular Android
 
-Guarde com segurança:
+Use:
 
 ```txt
-upload-keystore.jks
-upload-keystore-passwords.txt
+apk/NR1Check-teste-debug.apk
 ```
 
-Para publicar atualizações futuras do mesmo app na Google Play, será necessário usar a mesma chave de upload ou configurar uma chave definitiva como secret do GitHub depois.
+Envie para seu próprio celular, instale e teste.
 
-## Imagens geradas
+### Para Google Play
 
-O workflow gera automaticamente:
+Use:
 
 ```txt
-icon-512.png
-feature-graphic-1024x500.png
-screenshot-01-funcionario.png
-screenshot-02-patrao.png
-screenshot-03-pwa.png
+aab/NR1Check-v1.0.0.aab
 ```
 
-## Textos da loja
+A Google Play exige AAB para novos apps.
 
-Os textos ficam em:
+## Chave de upload
+
+Se você publicar o primeiro AAB gerado com a chave temporária do workflow, guarde para sempre:
 
 ```txt
-play-store/listing/pt-BR/short-description.txt
-play-store/listing/pt-BR/full-description.txt
+signing/upload-keystore.jks
+signing/upload-keystore-passwords.txt
 ```
 
-## Observação
+Sem essa chave, você pode perder a capacidade de atualizar o app.
 
-Esta é uma versão simples para Google Play usando WebView. Ela mantém a lógica do produto no web/PWA e abre a experiência mobile do NR1Check no Android.
+Recomendado para produção: criar uma chave definitiva e salvar nos GitHub Secrets:
+
+```txt
+ANDROID_KEYSTORE_BASE64
+ANDROID_KEYSTORE_PASSWORD
+ANDROID_KEY_ALIAS
+ANDROID_KEY_PASSWORD
+```
+
+## Dados para Google Play
+
+Nome do app:
+
+```txt
+NR1Check
+```
+
+Descrição curta:
+
+```txt
+NR-1 psicossocial para funcionários, patrões e RH, com acesso simples pelo celular.
+```
+
+Categoria sugerida:
+
+```txt
+Business / Productivity
+```
+
+URL de política de privacidade:
+
+```txt
+https://nr1check.netlify.app/privacidade
+```
+
+URL pública do app/PWA:
+
+```txt
+https://nr1check.netlify.app/app
+```
+
+## Permissões Android
+
+O app usa apenas:
+
+```txt
+INTERNET
+```
+
+Não solicita câmera, localização, microfone, agenda, arquivos ou SMS.
+
+## Requisitos de revisão Google Play
+
+Se a Google pedir acesso para revisão, forneça instruções claras:
+
+- Para funcionário: abrir app, tocar em “Acesso funcionário”, usar link/empresa/CPF/token de teste.
+- Para patrão/RH: usar conta de teste paga ou liberar uma conta de demonstração.
+- Informar que o app não realiza diagnóstico médico individual e não substitui profissional habilitado.
+
+## Observação legal
+
+O NR1Check organiza fluxo, evidências e documentos de apoio. A empresa contratante continua responsável pela validação técnica, jurídica, trabalhista e de SST aplicável.
