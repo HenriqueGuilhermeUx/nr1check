@@ -5,6 +5,19 @@ import { AppShell, EmptyPanel, MetricCard, PageHeader, StatusBadge } from "../co
 
 const SELECTED_COMPANY_KEY = "nr1check:selected-company-id";
 
+type CompanySummary = {
+  id: number;
+  name: string;
+  cnpj?: string | null;
+  onboardingCompleted?: boolean | null;
+  stripeStatus?: string | null;
+};
+
+type BillingCompanySummary = {
+  id: number;
+  isActive: boolean;
+};
+
 export default function Clients() {
   const navigate = useNavigate();
 
@@ -18,15 +31,18 @@ export default function Clients() {
     refetchOnWindowFocus: false,
   });
 
+  const companyList = (companies ?? []) as CompanySummary[];
+  const billingCompanies = (billing?.companies ?? []) as BillingCompanySummary[];
+
   function openCompany(id: number, nextRoute = "/dashboard") {
     window.localStorage.setItem(SELECTED_COMPANY_KEY, String(id));
     window.localStorage.setItem("nr1check:user-mode", "contador");
     navigate(nextRoute);
   }
 
-  const totalClients = companies?.length ?? 0;
-  const configuredClients = companies?.filter((company) => company.onboardingCompleted).length ?? 0;
-  const activeClients = billing?.companies.filter((company) => company.isActive).length ?? 0;
+  const totalClients = companyList.length;
+  const configuredClients = companyList.filter((company: CompanySummary) => company.onboardingCompleted).length;
+  const activeClients = billingCompanies.filter((company: BillingCompanySummary) => company.isActive).length;
   const extraCompanies = Math.max(totalClients - 10, 0);
   const estimatedMonthly = 199 + extraCompanies * 29;
 
@@ -64,7 +80,7 @@ export default function Clients() {
         <div className="card">
           <p className="text-gray-500">Carregando clientes...</p>
         </div>
-      ) : !companies?.length ? (
+      ) : !companyList.length ? (
         <EmptyPanel
           icon={<Building2 className="h-6 w-6" />}
           title="Nenhum cliente cadastrado"
@@ -108,8 +124,8 @@ export default function Clients() {
               </div>
 
               <div className="mt-5 grid gap-4 md:grid-cols-2">
-                {companies.map((company) => {
-                  const companyBilling = billing?.companies.find((item) => item.id === company.id);
+                {companyList.map((company: CompanySummary) => {
+                  const companyBilling = billingCompanies.find((item: BillingCompanySummary) => item.id === company.id);
                   const isActive = Boolean(companyBilling?.isActive || company.stripeStatus === "active");
 
                   return (
@@ -165,7 +181,7 @@ export default function Clients() {
                     <button
                       type="button"
                       onClick={() => {
-                        const first = companies[0];
+                        const first = companyList[0];
                         if (first) openCompany(first.id, "/funcionarios");
                       }}
                       className="btn-primary mt-4 text-sm"
