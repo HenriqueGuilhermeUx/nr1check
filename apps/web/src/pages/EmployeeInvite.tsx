@@ -7,6 +7,11 @@ import { AppShell, EmptyPanel, PageHeader, StatusBadge } from "../components/App
 
 const SELECTED_COMPANY_KEY = "nr1check:selected-company-id";
 
+type CompanySummary = {
+  id: number;
+  name: string;
+};
+
 function getBaseUrl() {
   if (typeof window === "undefined") return "https://nr1check.netlify.app";
   return window.location.origin;
@@ -24,13 +29,15 @@ export default function EmployeeInvite() {
     return stored ? Number(stored) : null;
   });
 
+  const companyList = (companies ?? []) as CompanySummary[];
+
   const selectedCompany = useMemo(() => {
-    if (!companies?.length) return undefined;
+    if (!companyList.length) return undefined;
     if (selectedCompanyId) {
-      return companies.find((company) => company.id === selectedCompanyId) ?? companies[0];
+      return companyList.find((company: CompanySummary) => company.id === selectedCompanyId) ?? companyList[0];
     }
-    return companies[0];
-  }, [companies, selectedCompanyId]);
+    return companyList[0];
+  }, [companyList, selectedCompanyId]);
 
   const baseUrl = getBaseUrl();
   const employeeAppLink = selectedCompany
@@ -74,7 +81,7 @@ export default function EmployeeInvite() {
         <div className="card">
           <p className="text-gray-500">Carregando empresas...</p>
         </div>
-      ) : !companies?.length ? (
+      ) : !companyList.length ? (
         <EmptyPanel
           icon={<Building2 className="h-6 w-6" />}
           title="Cadastre uma empresa primeiro"
@@ -94,7 +101,7 @@ export default function EmployeeInvite() {
               </div>
 
               <div className="mt-5 grid gap-3 md:grid-cols-2">
-                {companies.map((company) => {
+                {companyList.map((company: CompanySummary) => {
                   const active = selectedCompany?.id === company.id;
                   return (
                     <button
