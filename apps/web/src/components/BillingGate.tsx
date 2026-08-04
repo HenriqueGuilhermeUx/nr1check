@@ -6,6 +6,19 @@ import { trpc } from "../lib/trpc";
 
 type BillingMode = "company" | "accountant" | "either";
 
+type CompanySummary = {
+  id: number;
+  name: string;
+  stripeStatus?: string | null;
+};
+
+type BillingCompanySummary = {
+  id: number;
+  isActive: boolean;
+  billingStatus?: string | null;
+  stripeStatus?: string | null;
+};
+
 const SELECTED_COMPANY_KEY = "nr1check:selected-company-id";
 
 export function BillingGate({
@@ -38,6 +51,9 @@ export function BillingGate({
     refetchOnWindowFocus: false,
   });
 
+  const companyList = (companies ?? []) as CompanySummary[];
+  const billingCompanies = (billing?.companies ?? []) as BillingCompanySummary[];
+
   const createPixCharge = trpc.woovi.createPixCharge.useMutation({
     onSuccess: (data) => {
       navigate(`/pagamento/pix/${data.paymentId}`);
@@ -51,16 +67,16 @@ export function BillingGate({
   }, []);
 
   const selectedCompany = useMemo(() => {
-    if (!companies?.length) return undefined;
+    if (!companyList.length) return undefined;
 
     if (selectedCompanyId) {
-      return companies.find((company) => company.id === selectedCompanyId) ?? companies[0];
+      return companyList.find((company: CompanySummary) => company.id === selectedCompanyId) ?? companyList[0];
     }
 
-    return companies[0];
-  }, [companies, selectedCompanyId]);
+    return companyList[0];
+  }, [companyList, selectedCompanyId]);
 
-  const selectedCompanyBilling = billing?.companies.find((company) => company.id === selectedCompany?.id);
+  const selectedCompanyBilling = billingCompanies.find((company: BillingCompanySummary) => company.id === selectedCompany?.id);
 
   const companyActive = Boolean(selectedCompanyBilling?.isActive || selectedCompany?.stripeStatus === "active");
   const accountantActive = Boolean(billing?.accountant.isActive);
@@ -214,7 +230,7 @@ export function BillingGate({
               </p>
 
               <div className="mt-6 space-y-3">
-                {["Gera QR Code Pix", "Confirma pagamento via webhook", "Ativa billing_status = active", "Libera módulos do produto"].map((item) => (
+                {["Gera QR Code Pix", "Confirma pagamento via webhook", "Ativa billing_status = active", "Libera módulos do produto"].map((item: string) => (
                   <div key={item} className="flex gap-2 text-sm text-gray-200">
                     <CheckCircle2 className="h-5 w-5 shrink-0 text-green-300" />
                     {item}
