@@ -37,16 +37,17 @@ jobs:
             echo "Using ANDROID_KEYSTORE_BASE64 secret"
             echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > upload-keystore.jks
             echo "RELEASE_STORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
-            echo "RELEASE_KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD }}" >> $GITHUB_ENV
+            echo "RELEASE_KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD || secrets.ANDROID_KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
             echo "RELEASE_KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}" >> $GITHUB_ENV
             echo "Keystore loaded from GitHub Secrets" > upload-keystore-passwords.txt
             echo "KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}" >> upload-keystore-passwords.txt
           else
             echo "No production keystore secrets found. Generating temporary upload keystore artifact. Keep it if you publish this first build."
             STORE_PASS=$(openssl rand -base64 32 | tr -dc 'A-Za-z0-9' | head -c 28)
-            KEY_PASS=$(openssl rand -base64 32 | tr -dc 'A-Za-z0-9' | head -c 28)
+            KEY_PASS="$STORE_PASS"
             keytool -genkeypair \
               -v \
+              -storetype JKS \
               -keystore upload-keystore.jks \
               -storepass "$STORE_PASS" \
               -alias nr1check-upload \
@@ -62,6 +63,14 @@ jobs:
             echo "KEY_PASSWORD=$KEY_PASS" >> upload-keystore-passwords.txt
             echo "KEY_ALIAS=nr1check-upload" >> upload-keystore-passwords.txt
           fi
+
+      - name: Verify generated signing key
+        working-directory: apps/android
+        run: |
+          keytool -list \
+            -keystore upload-keystore.jks \
+            -storepass "$RELEASE_STORE_PASSWORD" \
+            -alias "$RELEASE_KEY_ALIAS"
 
       - name: Build test APK and release AAB
         working-directory: apps/android
