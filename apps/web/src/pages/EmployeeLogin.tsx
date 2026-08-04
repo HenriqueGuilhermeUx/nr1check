@@ -21,7 +21,8 @@ export default function EmployeeLogin() {
     return Number.isFinite(raw) && raw > 0 ? raw : null;
   }, []);
 
-  const resolvedCompanyId = urlCompanyId ?? Number(manualCompanyId || 0) || null;
+  const manualCompanyNumber = Number(manualCompanyId || 0) || null;
+  const resolvedCompanyId = urlCompanyId ?? manualCompanyNumber;
 
   const request = trpc.employee.requestToken.useMutation({
     onSuccess: (r) => {
