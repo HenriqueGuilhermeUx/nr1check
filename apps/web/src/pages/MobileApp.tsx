@@ -87,7 +87,7 @@ export default function MobileApp() {
               icon={<Building2 className="h-6 w-6" />}
               title="Sou patrão, RH ou gestor"
               description="Entre para acompanhar pendências, equipe, avaliação e documentos."
-              to="/login"
+              to="/login?redirect=/app"
               label="Entrar como empresa"
               tone="blue"
             />
