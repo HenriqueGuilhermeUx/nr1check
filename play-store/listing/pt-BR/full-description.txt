@@ -24,6 +24,12 @@ CONTADORES E CONSULTORES
 - Importação de folha por CSV.
 - Acompanhamento de status por cliente.
 
+PRIVACIDADE E CONTROLE
+- Política de Privacidade pública.
+- Canal público de suporte.
+- Canal público de solicitação de exclusão de conta e dados.
+- Acesso de funcionários condicionado a empresa, CPF cadastrado e código/token.
+
 O NR1Check não realiza diagnóstico médico individual e não substitui profissional legalmente habilitado, médico, psicólogo, técnico ou engenheiro de segurança, advogado ou consultor especializado.
 
 A plataforma organiza dados, fluxos, documentos e evidências para apoiar a gestão empresarial, mantendo a responsabilidade técnica, legal, trabalhista e operacional com a empresa contratante e seus profissionais designados.
