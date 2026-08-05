@@ -32,6 +32,8 @@ import Logout from "./pages/Logout";
 import TermsOfUse from "./pages/TermsOfUse";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import LegalDisclaimer from "./pages/LegalDisclaimer";
+import AccountDeletion from "./pages/AccountDeletion";
+import Support from "./pages/Support";
 import { BillingGate } from "./components/BillingGate";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -66,6 +68,9 @@ export function App() {
         <Route path="/termos" element={<TermsOfUse />} />
         <Route path="/privacidade" element={<PrivacyPolicy />} />
         <Route path="/disclaimer" element={<LegalDisclaimer />} />
+        <Route path="/excluir-conta" element={<AccountDeletion />} />
+        <Route path="/excluir-dados" element={<AccountDeletion />} />
+        <Route path="/suporte" element={<Support />} />
         <Route path="/pagamento/sucesso" element={<PaymentSuccess />} />
         <Route path="/pagamento/pix/:paymentId" element={<ProtectedRoute><PixPayment /></ProtectedRoute>} />
         <Route path="/acesso-funcionario" element={<EmployeeLogin />} />
