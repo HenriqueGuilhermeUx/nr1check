@@ -9,7 +9,6 @@ DARK = "#111827"
 WHITE = "#FFFFFF"
 MUTED = "#E5E7EB"
 GREEN = "#22C55E"
-YELLOW = "#FACC15"
 SLATE = "#334155"
 
 try:
@@ -48,14 +47,14 @@ def feature_graphic():
     d = ImageDraw.Draw(img)
     rounded_rect(d, (58, 58, 438, 442), 58, BRAND)
     d.text((102, 112), "NR1Check", font=FONT_BOLD, fill=WHITE)
-    d.text((102, 196), "NR-1 no bolso\nde quem precisa agir", font=FONT_TITLE, fill=WHITE, spacing=8)
-    d.text((102, 356), "Funcionário responde. Patrão acompanha.", font=FONT_MED, fill=MUTED)
+    d.text((102, 196), "Acesso simples\npara a NR-1", font=FONT_TITLE, fill=WHITE, spacing=8)
+    d.text((102, 356), "Funcionários, patrões, RH e gestores.", font=FONT_MED, fill=MUTED)
 
-    cards = [(520, "Funcionário", GREEN), (690, "Patrão/RH", BRAND), (850, "PWA", YELLOW)]
+    cards = [(530, "Funcionário", GREEN), (720, "Patrão/RH", BRAND)]
     for x, label, color in cards:
-        rounded_rect(d, (x, 150, x + 130, 282), 34, color)
-        center_text(d, (x, 150, x + 130, 282), "✓", FONT_BOLD, DARK if color == YELLOW else WHITE)
-        center_text(d, (x - 25, 306, x + 155, 356), label, FONT_SMALL, WHITE)
+        rounded_rect(d, (x, 150, x + 150, 300), 38, color)
+        center_text(d, (x, 150, x + 150, 300), "✓", FONT_BOLD, WHITE)
+        center_text(d, (x - 25, 326, x + 175, 376), label, FONT_SMALL, WHITE)
     img.save(OUT / "feature-graphic-1024x500.png")
 
 
@@ -87,35 +86,35 @@ def main():
     feature_graphic()
     phone_screenshot(
         "screenshot-01-funcionario.png",
-        "Acesso do funcionário",
-        "Simples, rápido e controlado",
+        "Funcionário",
+        "CPF cadastrado + código",
         [
-            ("Entrar com CPF", "Apenas trabalhadores cadastrados acessam."),
-            ("Responder avaliação", "Fluxo mobile sem painel complexo."),
-            ("Enviar relato", "Canal direto para situações sensíveis."),
-            ("Confirmar ciência", "Documentos e comunicados no celular."),
+            ("Entrar com CPF", "Acesso apenas para trabalhador cadastrado."),
+            ("Responder avaliação", "Fluxo simples pelo celular."),
+            ("Enviar relato", "Canal para situações sensíveis."),
+            ("Confirmar ciência", "Documentos e comunicados no app."),
         ],
     )
     phone_screenshot(
         "screenshot-02-patrao.png",
-        "Cockpit do patrão",
-        "O próximo passo sempre claro",
+        "Patrão e RH",
+        "Painel rápido da empresa",
         [
-            ("Checklist NR-1", "Veja o que falta fazer."),
-            ("Importar equipe", "Funcionários por CSV/planilha."),
-            ("Enviar link", "Compartilhe o app com trabalhadores."),
-            ("Baixar documentos", "Evidências para gestão."),
+            ("Minha empresa", "Cockpit com o que falta fazer."),
+            ("Funcionários", "Cadastro e importação da equipe."),
+            ("Enviar link", "Convide trabalhadores para o app."),
+            ("Documentos", "Evidências e assinaturas."),
         ],
     )
     phone_screenshot(
-        "screenshot-03-pwa.png",
-        "PWA instalável",
-        "Use antes do app oficial",
+        "screenshot-03-acesso.png",
+        "Acesso controlado",
+        "Mais simples para revisão e uso real",
         [
-            ("Abra no navegador", "nr1check.netlify.app/app"),
-            ("Adicione à tela inicial", "Fica com cara de aplicativo."),
-            ("Pix via Woovi", "Liberação automática após pagamento."),
-            ("Google Play", "Versão Android gera APK e AAB."),
+            ("Empresa autenticada", "Patrão/RH entra com conta própria."),
+            ("Funcionário validado", "CPF cadastrado e código de acesso."),
+            ("Botão sair", "Sessão pode ser encerrada no app."),
+            ("Sem painel confuso", "Ações do dia a dia em destaque."),
         ],
     )
 
