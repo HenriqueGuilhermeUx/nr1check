@@ -7,6 +7,8 @@ import { protectedProcedure, router } from "../trpc";
 
 type PixPlanId = "nr1_solo" | "nr1_pro" | "contador";
 
+const GOOGLE_REVIEW_EMAIL = "notarizex@gmail.com";
+
 const PIX_PLANS: Record<PixPlanId, { name: string; amountCents: number; scope: "company" | "accountant" }> = {
   nr1_solo: { name: "NR1Check Empresa Solo", amountCents: 7900, scope: "company" },
   nr1_pro: { name: "NR1Check PME Pro", amountCents: 13900, scope: "company" },
@@ -29,6 +31,21 @@ type WooviChargeResponse = {
   data?: { charge?: WooviChargeResponse["charge"] };
   errors?: Array<{ message?: string }>;
 };
+
+type BillingCompany = {
+  id: number;
+  name: string;
+  billingProvider: string | null;
+  billingPlan: string | null;
+  billingStatus: string | null;
+  stripeStatus: string | null;
+  stripePlan: string | null;
+  isActive: boolean;
+};
+
+function isGoogleReviewUser(email?: string | null) {
+  return email?.toLowerCase() === GOOGLE_REVIEW_EMAIL;
+}
 
 function getWooviConfig() {
   const appId = process.env.WOOVI_APP_ID || process.env.OPENPIX_APP_ID;
@@ -273,35 +290,36 @@ export const wooviRouter = router({
     `);
 
     const companyRows = Array.isArray(companiesResult) ? companiesResult : (companiesResult as any).rows;
-    const accountStatus = user?.billing_status as string | null;
-    const accountPlan = user?.billing_plan as string | null;
+    const reviewMode = isGoogleReviewUser(ctx.user.email);
+    const accountStatus = reviewMode ? "active" : (user?.billing_status as string | null);
+    const accountPlan = reviewMode ? "nr1_pro" : (user?.billing_plan as string | null);
 
-    const mappedCompanies = (companyRows ?? []).map((company: any) => {
-      const billingStatus = company.billing_status as string | null;
-      const stripeStatus = company.stripe_status as string | null;
+    const mappedCompanies: BillingCompany[] = (companyRows ?? []).map((company: any) => {
+      const billingStatus = reviewMode ? "active" : (company.billing_status as string | null);
+      const stripeStatus = reviewMode ? "active" : (company.stripe_status as string | null);
 
       return {
         id: Number(company.id),
         name: company.name as string,
-        billingProvider: company.billing_provider as string | null,
-        billingPlan: company.billing_plan as string | null,
+        billingProvider: reviewMode ? "google_review" : (company.billing_provider as string | null),
+        billingPlan: reviewMode ? "nr1_pro" : (company.billing_plan as string | null),
         billingStatus,
         stripeStatus,
-        stripePlan: company.stripe_plan as string | null,
-        isActive: isActiveStatus(billingStatus) || isActiveStatus(stripeStatus),
+        stripePlan: reviewMode ? "nr1_pro" : (company.stripe_plan as string | null),
+        isActive: reviewMode || isActiveStatus(billingStatus) || isActiveStatus(stripeStatus),
       };
     });
 
     return {
       accountant: {
         billingProvider: user?.billing_provider as string | null,
-        billingPlan: accountPlan,
-        billingStatus: accountStatus,
-        isActive: accountPlan === "contador" && isActiveStatus(accountStatus),
+        billingPlan: user?.billing_plan as string | null,
+        billingStatus: user?.billing_status as string | null,
+        isActive: !reviewMode && user?.billing_plan === "contador" && isActiveStatus(user?.billing_status as string | null),
       },
       companies: mappedCompanies,
-      hasActiveCompany: mappedCompanies.some((company: any) => company.isActive),
-      hasAnyActiveBilling: (accountPlan === "contador" && isActiveStatus(accountStatus)) || mappedCompanies.some((company: any) => company.isActive),
+      hasActiveCompany: reviewMode || mappedCompanies.some((company) => company.isActive),
+      hasAnyActiveBilling: reviewMode || (accountPlan === "contador" && isActiveStatus(accountStatus)) || mappedCompanies.some((company) => company.isActive),
     };
   }),
 });
