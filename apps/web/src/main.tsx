@@ -65,8 +65,8 @@ function TRPCProviderWithClerk() {
 
   if (!isLoaded) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="rounded-2xl bg-white p-6 shadow-sm border border-gray-200 text-center">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div className="rounded-2xl border border-gray-200 bg-white p-6 text-center shadow-sm">
           <div className="mx-auto h-10 w-10 rounded-xl bg-brand-600" />
           <p className="mt-4 text-sm text-gray-500">Carregando sessão...</p>
         </div>
@@ -87,12 +87,12 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ClerkProvider
       publishableKey={PUBLISHABLE_KEY}
-      afterSignInUrl="/dashboard"
-      afterSignUpUrl="/comecar"
+      afterSignInUrl="/app"
+      afterSignUpUrl="/app"
       signInUrl="/login"
       signUpUrl="/cadastro"
-      signInFallbackRedirectUrl="/dashboard"
-      signUpFallbackRedirectUrl="/comecar"
+      signInFallbackRedirectUrl="/app"
+      signUpFallbackRedirectUrl="/app"
     >
       <TRPCProviderWithClerk />
     </ClerkProvider>
