@@ -42,6 +42,23 @@ function getTrialInfo(createdAt?: string | Date | null) {
   };
 }
 
+function isAuthSyncError(message?: string | null) {
+  const normalized = message?.toLowerCase() ?? "";
+  return (
+    normalized.includes("login") ||
+    normalized.includes("unauthorized") ||
+    normalized.includes("não autorizado") ||
+    normalized.includes("nao autorizado") ||
+    normalized.includes("sessão") ||
+    normalized.includes("sessao")
+  );
+}
+
+function getCurrentPath() {
+  if (typeof window === "undefined") return "/app";
+  return `${window.location.pathname}${window.location.search}` || "/app";
+}
+
 export function BillingGate({
   children,
   mode = "either",
@@ -156,17 +173,34 @@ export function BillingGate({
   }
 
   if (companiesError) {
+    const authProblem = isAuthSyncError(companiesError.message);
+    const loginUrl = `/login?redirect=${encodeURIComponent(getCurrentPath())}`;
+
     return (
       <div className="min-h-screen bg-gray-50 p-6">
-        <div className="mx-auto max-w-3xl card border-red-200 bg-red-50">
+        <div className={`mx-auto max-w-3xl card ${authProblem ? "border-yellow-200 bg-yellow-50" : "border-red-200 bg-red-50"}`}>
           <div className="flex gap-3">
-            <AlertTriangle className="mt-0.5 h-5 w-5 text-red-700" />
+            <AlertTriangle className={`mt-0.5 h-5 w-5 ${authProblem ? "text-yellow-700" : "text-red-700"}`} />
             <div>
-              <h1 className="font-bold text-red-900">Não foi possível carregar sua empresa</h1>
-              <p className="mt-1 text-sm text-red-800">{companiesError.message}</p>
-              <button type="button" onClick={() => refetchCompanies()} className="btn-secondary mt-4">
-                Tentar novamente
-              </button>
+              <h1 className={`font-bold ${authProblem ? "text-yellow-900" : "text-red-900"}`}>
+                {authProblem ? "Sessão não sincronizada" : "Não foi possível carregar sua empresa"}
+              </h1>
+              <p className={`mt-1 text-sm ${authProblem ? "text-yellow-800" : "text-red-800"}`}>
+                {authProblem
+                  ? "Sua conta entrou no app, mas a API ainda não recebeu a autorização. Volte ao app ou entre novamente para sincronizar."
+                  : companiesError.message}
+              </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <Link to="/app" className="btn-primary">
+                  Voltar ao app
+                </Link>
+                <Link to={loginUrl} className="btn-secondary">
+                  Entrar novamente
+                </Link>
+                <button type="button" onClick={() => refetchCompanies()} className="btn-secondary">
+                  Tentar novamente
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -197,8 +231,8 @@ export function BillingGate({
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="mx-auto max-w-5xl">
-        <Link to="/" className="inline-flex items-center gap-2 text-sm font-semibold text-gray-500 hover:text-gray-900">
-          ← Voltar para início
+        <Link to="/app" className="inline-flex items-center gap-2 text-sm font-semibold text-gray-500 hover:text-gray-900">
+          ← Voltar para o app
         </Link>
 
         <div className="mt-6 card overflow-hidden border-brand-200">
