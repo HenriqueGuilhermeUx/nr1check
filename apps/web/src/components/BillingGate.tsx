@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { AlertTriangle, Building2, CheckCircle2, Lock, QrCode, RefreshCcw } from "lucide-react";
+import { AlertTriangle, Building2, CheckCircle2, Clock, Lock, QrCode, RefreshCcw } from "lucide-react";
 import toast from "react-hot-toast";
 import { trpc } from "../lib/trpc";
 
@@ -10,16 +10,37 @@ type CompanySummary = {
   id: number;
   name: string;
   stripeStatus?: string | null;
+  createdAt?: string | Date | null;
 };
 
 type BillingCompanySummary = {
   id: number;
   isActive: boolean;
+  isTrialActive?: boolean;
+  trialDaysLeft?: number;
   billingStatus?: string | null;
   stripeStatus?: string | null;
 };
 
 const SELECTED_COMPANY_KEY = "nr1check:selected-company-id";
+const TRIAL_DAYS = 7;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function getTrialInfo(createdAt?: string | Date | null) {
+  if (!createdAt) return { isTrialActive: false, trialDaysLeft: 0 };
+
+  const created = new Date(createdAt).getTime();
+  if (!Number.isFinite(created)) return { isTrialActive: false, trialDaysLeft: 0 };
+
+  const trialEndsAt = created + TRIAL_DAYS * DAY_MS;
+  const remainingMs = trialEndsAt - Date.now();
+  const trialDaysLeft = Math.max(0, Math.ceil(remainingMs / DAY_MS));
+
+  return {
+    isTrialActive: remainingMs > 0,
+    trialDaysLeft,
+  };
+}
 
 export function BillingGate({
   children,
@@ -30,6 +51,7 @@ export function BillingGate({
 }) {
   const navigate = useNavigate();
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null);
+  const [slowLoading, setSlowLoading] = useState(false);
 
   const {
     data: companies,
@@ -66,6 +88,16 @@ export function BillingGate({
     if (stored) setSelectedCompanyId(Number(stored));
   }, []);
 
+  useEffect(() => {
+    if (!loadingCompanies && !loadingBilling) {
+      setSlowLoading(false);
+      return;
+    }
+
+    const timer = window.setTimeout(() => setSlowLoading(true), 7000);
+    return () => window.clearTimeout(timer);
+  }, [loadingCompanies, loadingBilling]);
+
   const selectedCompany = useMemo(() => {
     if (!companyList.length) return undefined;
 
@@ -77,8 +109,15 @@ export function BillingGate({
   }, [companyList, selectedCompanyId]);
 
   const selectedCompanyBilling = billingCompanies.find((company: BillingCompanySummary) => company.id === selectedCompany?.id);
+  const trialInfo = getTrialInfo(selectedCompany?.createdAt);
 
-  const companyActive = Boolean(selectedCompanyBilling?.isActive || selectedCompany?.stripeStatus === "active");
+  const companyActive = Boolean(
+    selectedCompany?.stripeStatus === "active" ||
+      selectedCompanyBilling?.isActive ||
+      selectedCompanyBilling?.isTrialActive ||
+      trialInfo.isTrialActive,
+  );
+
   const accountantActive = Boolean(billing?.accountant.isActive);
 
   const allowed =
@@ -88,39 +127,44 @@ export function BillingGate({
         ? accountantActive
         : companyActive || accountantActive;
 
-  if (loadingCompanies || loadingBilling) {
+  if (allowed) return <>{children}</>;
+
+  if (loadingCompanies) {
     return (
       <div className="min-h-screen bg-gray-50 p-6">
         <div className="mx-auto max-w-3xl card">
           <div className="flex items-center gap-3">
             <RefreshCcw className="h-5 w-5 animate-spin text-brand-600" />
             <div>
-              <h1 className="font-bold text-gray-900">Verificando assinatura...</h1>
-              <p className="text-sm text-gray-500">Conferindo status do pagamento Woovi/Pix.</p>
+              <h1 className="font-bold text-gray-900">Carregando sua empresa...</h1>
+              <p className="text-sm text-gray-500">Estamos preparando seu acesso.</p>
             </div>
           </div>
+
+          {slowLoading ? (
+            <div className="mt-5 rounded-2xl border border-yellow-200 bg-yellow-50 p-4">
+              <p className="text-sm font-semibold text-yellow-900">Está demorando mais que o normal.</p>
+              <p className="mt-1 text-sm text-yellow-800">Tente novamente em alguns segundos. Se estiver no Render gratuito, a API pode estar acordando.</p>
+              <button type="button" onClick={() => refetchCompanies()} className="btn-secondary mt-4">
+                Tentar novamente
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
     );
   }
 
-  if (companiesError || billingError) {
+  if (companiesError) {
     return (
       <div className="min-h-screen bg-gray-50 p-6">
         <div className="mx-auto max-w-3xl card border-red-200 bg-red-50">
           <div className="flex gap-3">
             <AlertTriangle className="mt-0.5 h-5 w-5 text-red-700" />
             <div>
-              <h1 className="font-bold text-red-900">Não foi possível verificar assinatura</h1>
-              <p className="mt-1 text-sm text-red-800">{companiesError?.message ?? billingError?.message}</p>
-              <button
-                type="button"
-                onClick={() => {
-                  refetchCompanies();
-                  refetchBilling();
-                }}
-                className="btn-secondary mt-4"
-              >
+              <h1 className="font-bold text-red-900">Não foi possível carregar sua empresa</h1>
+              <p className="mt-1 text-sm text-red-800">{companiesError.message}</p>
+              <button type="button" onClick={() => refetchCompanies()} className="btn-secondary mt-4">
                 Tentar novamente
               </button>
             </div>
@@ -129,8 +173,6 @@ export function BillingGate({
       </div>
     );
   }
-
-  if (allowed) return <>{children}</>;
 
   const needsCompany = mode !== "accountant" && !selectedCompany;
 
@@ -166,9 +208,9 @@ export function BillingGate({
                 <Lock className="h-6 w-6" />
               </div>
 
-              <h1 className="mt-5 text-2xl font-bold text-gray-900">Plano necessário para continuar</h1>
+              <h1 className="mt-5 text-2xl font-bold text-gray-900">Comece com 7 dias grátis</h1>
               <p className="mt-2 text-gray-600">
-                Esta área faz parte do produto pago. Escolha um plano, pague com Pix via Woovi e o acesso será liberado automaticamente.
+                Patrões, RH e gestores podem testar o NR1Check por 7 dias. Depois do período de teste, escolha um plano para continuar usando os módulos da empresa.
               </p>
 
               {selectedCompany ? (
@@ -185,11 +227,26 @@ export function BillingGate({
                 </div>
               ) : null}
 
+              {billingError ? (
+                <div className="mt-5 rounded-2xl border border-yellow-200 bg-yellow-50 p-4">
+                  <p className="text-sm font-semibold text-yellow-900">Não conseguimos confirmar a assinatura agora.</p>
+                  <p className="mt-1 text-sm text-yellow-800">Você ainda pode iniciar o teste criando uma empresa. Depois verificaremos o plano novamente.</p>
+                  <button type="button" onClick={() => refetchBilling()} className="btn-secondary mt-4">
+                    Verificar novamente
+                  </button>
+                </div>
+              ) : null}
+
               {needsCompany ? (
-                <div className="mt-6 rounded-2xl border border-yellow-200 bg-yellow-50 p-4">
-                  <h2 className="font-bold text-yellow-900">Cadastre uma empresa primeiro</h2>
-                  <p className="mt-1 text-sm text-yellow-800">Para assinar plano de empresa, você precisa ter uma empresa cadastrada.</p>
-                  <Link to="/comecar" className="btn-primary mt-4">Cadastrar empresa →</Link>
+                <div className="mt-6 rounded-2xl border border-brand-200 bg-brand-50 p-4">
+                  <div className="flex gap-3">
+                    <Clock className="mt-0.5 h-5 w-5 text-brand-700" />
+                    <div>
+                      <h2 className="font-bold text-brand-900">Ative seu teste grátis</h2>
+                      <p className="mt-1 text-sm text-brand-800">Cadastre a empresa para liberar 7 dias de uso como patrão/RH.</p>
+                      <Link to="/comecar" className="btn-primary mt-4">Cadastrar empresa →</Link>
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <div className="mt-6 grid gap-3 sm:grid-cols-3">
@@ -219,18 +276,23 @@ export function BillingGate({
                 </div>
               )}
 
-              {createPixCharge.isPending ? <p className="mt-4 text-sm text-gray-500">Gerando Pix Woovi...</p> : null}
+              {createPixCharge.isPending ? <p className="mt-4 text-sm text-gray-500">Gerando cobrança...</p> : null}
             </div>
 
             <div className="bg-gray-900 p-6 text-white lg:p-8">
               <QrCode className="h-8 w-8 text-brand-200" />
-              <h2 className="mt-4 text-xl font-bold">Liberação automática por Pix</h2>
+              <h2 className="mt-4 text-xl font-bold">Teste grátis + plano mensal</h2>
               <p className="mt-2 text-sm text-gray-300">
-                Depois do pagamento, a Woovi envia o webhook e o sistema ativa o acesso automaticamente.
+                Use o produto por 7 dias, valide com sua equipe e depois mantenha o acesso pelo plano mensal.
               </p>
 
               <div className="mt-6 space-y-3">
-                {["Gera QR Code Pix", "Confirma pagamento via webhook", "Ativa billing_status = active", "Libera módulos do produto"].map((item: string) => (
+                {[
+                  "7 dias grátis para patrão/RH",
+                  "Funcionários acessam por CPF e código",
+                  "Dashboard, equipe, avaliação e documentos",
+                  "Plano mensal após o período de teste",
+                ].map((item: string) => (
                   <div key={item} className="flex gap-2 text-sm text-gray-200">
                     <CheckCircle2 className="h-5 w-5 shrink-0 text-green-300" />
                     {item}
@@ -239,7 +301,7 @@ export function BillingGate({
               </div>
 
               <Link to="/precos" className="mt-8 inline-flex text-sm font-semibold text-brand-200 hover:text-white">
-                Ver todos os planos →
+                Ver planos →
               </Link>
             </div>
           </div>
