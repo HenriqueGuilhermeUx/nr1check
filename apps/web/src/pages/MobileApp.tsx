@@ -91,6 +91,15 @@ export default function MobileApp() {
               label="Entrar como empresa"
               tone="blue"
             />
+
+            <AccessCard
+              icon={<Shield className="h-6 w-6" />}
+              title="Acesso de revisão Google Play"
+              description="Entrada demonstrativa sem código por e-mail, sem login e sem dados reais."
+              to="/app/revisao-google"
+              label="Abrir revisão"
+              tone="blue"
+            />
           </section>
 
           <section className="mt-5 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
