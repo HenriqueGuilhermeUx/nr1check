@@ -153,8 +153,12 @@ Não solicita câmera, localização, microfone, agenda, arquivos ou SMS.
 Se a Google pedir acesso para revisão, forneça instruções claras:
 
 - Para funcionário: abrir app, tocar em “Acesso funcionário”, usar link/empresa/CPF/token de teste.
-- Para patrão/RH: usar conta de teste paga ou liberar uma conta de demonstração.
+- Para patrão/RH: usar a opção “Ver demonstração”, sem login e sem dados reais.
 - Informar que o app não realiza diagnóstico médico individual e não substitui profissional habilitado.
+
+## Status do build
+
+Último gatilho solicitado para gerar APK/AAB pelo GitHub Actions após instabilidade de runner hospedado.
 
 ## Observação legal
 
