@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { SignedIn, SignedOut, useClerk, useUser } from "@clerk/clerk-react";
 import {
   AlertTriangle,
-  ArrowLeft,
   Building2,
   ClipboardCheck,
   FileCheck,
@@ -17,6 +16,13 @@ import { trpc } from "../lib/trpc";
 
 const GOOGLE_REVIEW_EMAIL = "notarizex@gmail.com";
 const SELECTED_COMPANY_KEY = "nr1check:selected-company-id";
+
+const DEMO_COMPANY: CompanySummary = {
+  id: 900001,
+  name: "Empresa Demonstração Google Play",
+  cnpj: "90000000000001",
+  onboardingCompleted: true,
+};
 
 type CompanySummary = {
   id: number;
@@ -47,12 +53,12 @@ export default function MobileCompanyApp() {
     error,
     refetch,
   } = trpc.company.my.useQuery(undefined, {
-    enabled: Boolean(user),
+    enabled: Boolean(user) && !reviewMode,
     retry: 1,
     refetchOnWindowFocus: false,
   });
 
-  const companyList = (companies ?? []) as CompanySummary[];
+  const companyList = reviewMode ? [DEMO_COMPANY] : ((companies ?? []) as CompanySummary[]);
   const selectedCompany = companyList[0];
 
   if (selectedCompany?.id && typeof window !== "undefined") {
@@ -110,12 +116,12 @@ export default function MobileCompanyApp() {
             ) : null}
           </section>
 
-          {isLoading ? (
+          {!reviewMode && isLoading ? (
             <div className="mt-5 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
               <p className="font-bold text-gray-900">Carregando empresa...</p>
               <p className="mt-1 text-sm text-gray-500">Aguarde alguns segundos.</p>
             </div>
-          ) : error ? (
+          ) : !reviewMode && error ? (
             <div className="mt-5 rounded-3xl border border-yellow-200 bg-yellow-50 p-5">
               <div className="flex gap-3">
                 <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-yellow-700" />
@@ -157,7 +163,7 @@ export default function MobileCompanyApp() {
                 </p>
               </div>
 
-              <MobileTabContent tab={tab} />
+              <MobileTabContent tab={tab} reviewMode={reviewMode} />
 
               <nav className="mt-5 grid grid-cols-2 gap-3">
                 <MobileNavCard icon={<Building2 className="h-5 w-5" />} title="Início" to="/app/empresa" />
@@ -167,12 +173,6 @@ export default function MobileCompanyApp() {
                 <MobileNavCard icon={<FileCheck className="h-5 w-5" />} title="Documentos" to="/app/empresa?aba=documentos" />
                 <MobileNavCard icon={<MessageSquare className="h-5 w-5" />} title="Relatos" to="/app/empresa?aba=relatos" />
               </nav>
-
-              <div className="mt-5 grid gap-3">
-                <Link to="/dashboard" className="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-center text-sm font-bold text-gray-700 shadow-sm">
-                  Abrir versão completa
-                </Link>
-              </div>
             </>
           )}
         </SignedIn>
@@ -189,37 +189,39 @@ export default function MobileCompanyApp() {
   );
 }
 
-function MobileTabContent({ tab }: { tab: string }) {
+function MobileTabContent({ tab, reviewMode }: { tab: string; reviewMode: boolean }) {
   const content: Record<string, { title: string; description: string; items: string[] }> = {
     inicio: {
       title: "Resumo da rotina",
-      description: "Acompanhe as ações principais da empresa pelo celular.",
-      items: ["Conferir funcionários cadastrados", "Enviar link de acesso", "Acompanhar avaliação", "Organizar documentos"],
+      description: reviewMode
+        ? "Ambiente demonstrativo liberado para revisão do Google Play."
+        : "Acompanhe as ações principais da empresa pelo celular.",
+      items: ["Empresa demo ativa", "2 funcionários cadastrados", "Avaliação pronta para envio", "Documentos e relatos disponíveis"],
     },
     funcionarios: {
       title: "Funcionários",
       description: "Cadastre ou importe trabalhadores pela versão completa.",
-      items: ["Ver equipe cadastrada", "Importar planilha", "Controlar CPF e telefone", "Liberar acesso por link"],
+      items: ["Ana Souza — Administrativo", "Carlos Lima — Operacional", "CPF e telefone controlados", "Acesso por link da empresa"],
     },
     convite: {
       title: "Enviar link",
       description: "Compartilhe o acesso do app com os funcionários.",
-      items: ["Gerar link por empresa", "Enviar por WhatsApp", "Funcionário entra com CPF", "Código de acesso protege a entrada"],
+      items: ["Link da empresa disponível", "Envio por WhatsApp ou e-mail", "Funcionário entra com CPF", "Código de acesso protege a entrada"],
     },
     avaliacao: {
       title: "Avaliação psicossocial",
       description: "Controle o envio e acompanhe respostas agregadas.",
-      items: ["Criar ciclo de avaliação", "Enviar aos trabalhadores", "Acompanhar participação", "Ver achados agregados"],
+      items: ["Ciclo de avaliação demonstrativo", "Convite aos trabalhadores", "Participação acompanhada", "Achados agregados por dimensão"],
     },
     documentos: {
       title: "Documentos",
       description: "Organize evidências e confirmações de ciência.",
-      items: ["Documentos da empresa", "Comunicados", "Assinaturas/ciência", "Dossiê de evidências"],
+      items: ["Comunicado interno", "Plano de ação", "Ciência de documentos", "Dossiê de evidências"],
     },
     relatos: {
       title: "Relatos",
       description: "Acompanhe o canal de ocorrências e relatos.",
-      items: ["Relatos recebidos", "Status de tratativa", "Histórico de ocorrência", "Ações internas"],
+      items: ["Canal disponível", "Status de tratativa", "Histórico de ocorrência", "Ações internas"],
     },
   };
 
