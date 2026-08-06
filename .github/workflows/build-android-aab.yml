@@ -2,6 +2,15 @@ name: Build Android APK and AAB
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/build-android-aab.yml"
+      - "apps/android/**"
+      - "play-store/**"
+      - "scripts/generate_play_assets.py"
+      - "README_ANDROID_GOOGLE_PLAY.md"
 
 jobs:
   build-android:
