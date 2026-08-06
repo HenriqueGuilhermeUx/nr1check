@@ -6,6 +6,7 @@ import { Toaster } from "react-hot-toast";
 import Home from "./pages/Home";
 import MobileApp from "./pages/MobileApp";
 import MobileCompanyApp from "./pages/MobileCompanyApp";
+import GoogleReviewApp from "./pages/GoogleReviewApp";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Pricing from "./pages/Pricing";
@@ -62,6 +63,7 @@ export function App() {
         <Route path="/" element={<Home />} />
         <Route path="/app" element={<MobileApp />} />
         <Route path="/app/empresa" element={<MobileCompanyApp />} />
+        <Route path="/app/revisao-google" element={<GoogleReviewApp />} />
         <Route path="/login/*" element={<Login />} />
         <Route path="/cadastro/*" element={<Signup />} />
         <Route path="/sair" element={<Logout />} />
