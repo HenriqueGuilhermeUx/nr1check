@@ -94,10 +94,10 @@ export default function MobileApp() {
 
             <AccessCard
               icon={<Shield className="h-6 w-6" />}
-              title="Acesso de revisão Google Play"
-              description="Entrada demonstrativa sem código por e-mail, sem login e sem dados reais."
+              title="Ver demonstração"
+              description="Explore o app com dados fictícios, sem login e sem dados reais."
               to="/app/revisao-google"
-              label="Abrir revisão"
+              label="Abrir demonstração"
               tone="blue"
             />
           </section>
