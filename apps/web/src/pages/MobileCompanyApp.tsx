@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { Link } from "react-router-dom";
 import { SignedIn, SignedOut, useClerk, useUser } from "@clerk/clerk-react";
 import {
@@ -17,12 +17,7 @@ import { trpc } from "../lib/trpc";
 const GOOGLE_REVIEW_EMAIL = "notarizex@gmail.com";
 const SELECTED_COMPANY_KEY = "nr1check:selected-company-id";
 
-const DEMO_COMPANY: CompanySummary = {
-  id: 900001,
-  name: "Empresa Demonstração Google Play",
-  cnpj: "90000000000001",
-  onboardingCompleted: true,
-};
+type TabId = "inicio" | "funcionarios" | "convite" | "avaliacao" | "documentos" | "relatos";
 
 type CompanySummary = {
   id: number;
@@ -31,21 +26,33 @@ type CompanySummary = {
   onboardingCompleted?: boolean | null;
 };
 
+const DEMO_COMPANY: CompanySummary = {
+  id: 900001,
+  name: "Empresa Demonstração Google Play",
+  cnpj: "90000000000001",
+  onboardingCompleted: true,
+};
+
 function isGoogleReviewEmail(email?: string | null) {
-  return email?.toLowerCase() === GOOGLE_REVIEW_EMAIL;
+  return email?.trim().toLowerCase() === GOOGLE_REVIEW_EMAIL;
 }
 
-function getCurrentTab() {
+function getInitialTab(): TabId {
   if (typeof window === "undefined") return "inicio";
-  return new URLSearchParams(window.location.search).get("aba") ?? "inicio";
+  const value = new URLSearchParams(window.location.search).get("aba");
+  if (value === "funcionarios" || value === "convite" || value === "avaliacao" || value === "documentos" || value === "relatos") return value;
+  return "inicio";
 }
 
 export default function MobileCompanyApp() {
   const { signOut } = useClerk();
-  const { user } = useUser();
-  const email = user?.primaryEmailAddress?.emailAddress ?? null;
+  const { user, isLoaded } = useUser();
+  const [tab, setTab] = useState<TabId>(() => getInitialTab());
+
+  const email = user?.primaryEmailAddress?.emailAddress ?? user?.emailAddresses?.[0]?.emailAddress ?? null;
   const reviewMode = isGoogleReviewEmail(email);
-  const tab = getCurrentTab();
+  const waitingForClerk = !isLoaded || (Boolean(user) && !email);
+  const canQueryApi = isLoaded && Boolean(user) && Boolean(email) && !reviewMode;
 
   const {
     data: companies,
@@ -53,8 +60,8 @@ export default function MobileCompanyApp() {
     error,
     refetch,
   } = trpc.company.my.useQuery(undefined, {
-    enabled: Boolean(user) && !reviewMode,
-    retry: 1,
+    enabled: canQueryApi,
+    retry: 2,
     refetchOnWindowFocus: false,
   });
 
@@ -64,6 +71,9 @@ export default function MobileCompanyApp() {
   if (selectedCompany?.id && typeof window !== "undefined") {
     window.localStorage.setItem(SELECTED_COMPANY_KEY, String(selectedCompany.id));
   }
+
+  const showLoading = !reviewMode && (waitingForClerk || isLoading);
+  const showApiError = !reviewMode && !waitingForClerk && Boolean(error);
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-950">
@@ -108,7 +118,7 @@ export default function MobileCompanyApp() {
           <section className="mt-7 rounded-[2rem] bg-brand-600 p-6 text-white shadow-xl shadow-brand-600/20">
             <p className="text-xs font-bold uppercase tracking-wide text-brand-100">Conta da empresa</p>
             <h1 className="mt-3 text-3xl font-black tracking-tight">Painel rápido</h1>
-            <p className="mt-3 truncate text-sm text-brand-50">{email}</p>
+            <p className="mt-3 truncate text-sm text-brand-50">{email ?? "sincronizando conta..."}</p>
             {reviewMode ? (
               <p className="mt-3 inline-flex rounded-full bg-white/15 px-3 py-1 text-xs font-bold text-white">
                 Acesso de revisão Google Play
@@ -116,19 +126,19 @@ export default function MobileCompanyApp() {
             ) : null}
           </section>
 
-          {!reviewMode && isLoading ? (
+          {showLoading ? (
             <div className="mt-5 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-              <p className="font-bold text-gray-900">Carregando empresa...</p>
-              <p className="mt-1 text-sm text-gray-500">Aguarde alguns segundos.</p>
+              <p className="font-bold text-gray-900">Carregando acesso...</p>
+              <p className="mt-1 text-sm text-gray-500">Estamos sincronizando sua sessão com segurança.</p>
             </div>
-          ) : !reviewMode && error ? (
+          ) : showApiError ? (
             <div className="mt-5 rounded-3xl border border-yellow-200 bg-yellow-50 p-5">
               <div className="flex gap-3">
                 <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-yellow-700" />
                 <div>
                   <p className="font-bold text-yellow-950">Sessão em sincronização</p>
                   <p className="mt-1 text-sm leading-6 text-yellow-900">
-                    O app carregou sua conta, mas a API ainda não confirmou a autorização. Volte ao app ou tente novamente.
+                    O app carregou sua conta, mas a API ainda não confirmou a autorização. Tente novamente em alguns segundos.
                   </p>
                   <div className="mt-4 grid gap-2">
                     <button type="button" onClick={() => refetch()} className="rounded-2xl bg-gray-950 px-4 py-3 text-sm font-extrabold text-white">
@@ -166,12 +176,12 @@ export default function MobileCompanyApp() {
               <MobileTabContent tab={tab} reviewMode={reviewMode} />
 
               <nav className="mt-5 grid grid-cols-2 gap-3">
-                <MobileNavCard icon={<Building2 className="h-5 w-5" />} title="Início" to="/app/empresa" />
-                <MobileNavCard icon={<Users className="h-5 w-5" />} title="Funcionários" to="/app/empresa?aba=funcionarios" />
-                <MobileNavCard icon={<Send className="h-5 w-5" />} title="Enviar link" to="/app/empresa?aba=convite" />
-                <MobileNavCard icon={<ClipboardCheck className="h-5 w-5" />} title="Avaliação" to="/app/empresa?aba=avaliacao" />
-                <MobileNavCard icon={<FileCheck className="h-5 w-5" />} title="Documentos" to="/app/empresa?aba=documentos" />
-                <MobileNavCard icon={<MessageSquare className="h-5 w-5" />} title="Relatos" to="/app/empresa?aba=relatos" />
+                <MobileNavButton active={tab === "inicio"} icon={<Building2 className="h-5 w-5" />} title="Início" onClick={() => setTab("inicio")} />
+                <MobileNavButton active={tab === "funcionarios"} icon={<Users className="h-5 w-5" />} title="Funcionários" onClick={() => setTab("funcionarios")} />
+                <MobileNavButton active={tab === "convite"} icon={<Send className="h-5 w-5" />} title="Enviar link" onClick={() => setTab("convite")} />
+                <MobileNavButton active={tab === "avaliacao"} icon={<ClipboardCheck className="h-5 w-5" />} title="Avaliação" onClick={() => setTab("avaliacao")} />
+                <MobileNavButton active={tab === "documentos"} icon={<FileCheck className="h-5 w-5" />} title="Documentos" onClick={() => setTab("documentos")} />
+                <MobileNavButton active={tab === "relatos"} icon={<MessageSquare className="h-5 w-5" />} title="Relatos" onClick={() => setTab("relatos")} />
               </nav>
             </>
           )}
@@ -189,8 +199,8 @@ export default function MobileCompanyApp() {
   );
 }
 
-function MobileTabContent({ tab, reviewMode }: { tab: string; reviewMode: boolean }) {
-  const content: Record<string, { title: string; description: string; items: string[] }> = {
+function MobileTabContent({ tab, reviewMode }: { tab: TabId; reviewMode: boolean }) {
+  const content: Record<TabId, { title: string; description: string; items: string[] }> = {
     inicio: {
       title: "Resumo da rotina",
       description: reviewMode
@@ -225,7 +235,7 @@ function MobileTabContent({ tab, reviewMode }: { tab: string; reviewMode: boolea
     },
   };
 
-  const selected = content[tab] ?? content.inicio;
+  const selected = content[tab];
 
   return (
     <section className="mt-5 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -242,13 +252,29 @@ function MobileTabContent({ tab, reviewMode }: { tab: string; reviewMode: boolea
   );
 }
 
-function MobileNavCard({ icon, title, to }: { icon: ReactNode; title: string; to: string }) {
+function MobileNavButton({
+  active,
+  icon,
+  title,
+  onClick,
+}: {
+  active: boolean;
+  icon: ReactNode;
+  title: string;
+  onClick: () => void;
+}) {
   return (
-    <Link to={to} className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-3xl border p-4 text-left shadow-sm transition ${
+        active ? "border-brand-500 bg-brand-50 ring-2 ring-brand-500" : "border-gray-200 bg-white"
+      }`}
+    >
       <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-50 text-brand-700">
         {icon}
       </div>
       <p className="mt-3 text-sm font-extrabold text-gray-950">{title}</p>
-    </Link>
+    </button>
   );
 }
