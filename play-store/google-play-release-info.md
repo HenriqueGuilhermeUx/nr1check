@@ -32,27 +32,27 @@ Disclaimer técnico/jurídico:
 https://nr1check.netlify.app/disclaimer
 ```
 
-## Conta de teste para revisão Google Play
+## Acesso para revisão Google Play
+
+O app possui uma área demonstrativa pública, sem login, sem código por e-mail e sem dados reais:
 
 ```txt
-E-mail: notarizex@gmail.com
-Perfil: patrão/RH
-Acesso: liberado como conta de revisão Google Play
-Empresa demo: Empresa Demonstração Google Play
+https://nr1check.netlify.app/app/revisao-google
 ```
 
-Informe a senha cadastrada por você no campo de credenciais do Play Console.
-
-Fluxo para o revisor:
+No campo “App access” do Play Console, informe:
 
 ```txt
-1. Abrir o app NR1Check
-2. Tocar em “Sou patrão, RH ou gestor”
-3. Entrar com notarizex@gmail.com e a senha informada no Play Console
-4. O app volta para o painel rápido
-5. Abrir Minha empresa, Funcionários, Enviar link, Avaliação, Documentos ou Relatos
-6. Usar o botão “Sair” no topo para encerrar a sessão
+Este app possui áreas com login para clientes reais, mas para revisão do Google Play há um ambiente demonstrativo sem autenticação.
+
+Passos:
+1. Abrir o app NR1Check.
+2. Tocar em “Acesso de revisão Google Play”.
+3. Navegar por Início, Funcionários, Enviar link, Avaliação, Documentos e Relatos.
+4. A área usa dados demonstrativos e não exige código enviado por e-mail.
 ```
+
+Não usar notarizex@gmail.com para a revisão final se o Clerk pedir código por e-mail. O acesso correto para o revisor é “Acesso de revisão Google Play”.
 
 ## Descrição curta
 
