@@ -87,7 +87,7 @@ export default function MobileApp() {
               icon={<Building2 className="h-6 w-6" />}
               title="Sou patrão, RH ou gestor"
               description="Entre para acompanhar pendências, equipe, avaliação e documentos."
-              to="/login?redirect=/app"
+              to="/login?redirect=/app/empresa"
               label="Entrar como empresa"
               tone="blue"
             />
@@ -115,38 +115,38 @@ export default function MobileApp() {
             <QuickAction
               icon={<Building2 className="h-5 w-5" />}
               title="Minha empresa"
-              description="Abrir cockpit e ver o que falta fazer."
-              to="/dashboard"
+              description="Ver resumo e status da empresa."
+              to="/app/empresa"
             />
             <QuickAction
               icon={<Users className="h-5 w-5" />}
               title="Funcionários"
-              description="Cadastrar, importar e conferir trabalhadores."
-              to="/funcionarios"
+              description="Conferir rotina de equipe no app."
+              to="/app/empresa?aba=funcionarios"
             />
             <QuickAction
               icon={<Send className="h-5 w-5" />}
               title="Enviar link aos funcionários"
               description="Compartilhar acesso do app com a equipe."
-              to="/convite-funcionarios"
+              to="/app/empresa?aba=convite"
             />
             <QuickAction
               icon={<ClipboardCheck className="h-5 w-5" />}
               title="Avaliação"
-              description="Criar, enviar e acompanhar avaliação psicossocial."
-              to="/avaliacao-psicossocial"
+              description="Acompanhar avaliação psicossocial."
+              to="/app/empresa?aba=avaliacao"
             />
             <QuickAction
               icon={<FileCheck className="h-5 w-5" />}
               title="Documentos"
-              description="Abrir evidências, documentos e assinaturas."
-              to="/documentos-assinaturas"
+              description="Ver documentos e evidências."
+              to="/app/empresa?aba=documentos"
             />
             <QuickAction
               icon={<MessageSquare className="h-5 w-5" />}
               title="Relatos"
-              description="Acompanhar ocorrências e canal de relatos."
-              to="/denuncias"
+              description="Acompanhar canal de relatos."
+              to="/app/empresa?aba=relatos"
             />
           </section>
 
