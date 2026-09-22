@@ -15,6 +15,7 @@ import PixPayment from "./pages/PixPayment";
 import Onboarding from "./pages/Onboarding";
 import NexOfficeEntry from "./pages/NexOfficeEntry";
 import NexOfficeSetup from "./pages/NexOfficeSetup";
+import NexOfficeFederatedEntry from "./pages/NexOfficeFederatedEntry";
 import Dashboard from "./pages/Dashboard";
 import Clients from "./pages/Clients";
 import EmployeeInvite from "./pages/EmployeeInvite";
@@ -67,6 +68,7 @@ export function App() {
         <Route path="/app/empresa" element={<MobileCompanyApp />} />
         <Route path="/app/revisao-google" element={<GoogleReviewApp />} />
         <Route path="/nexoffice" element={<NexOfficeEntry />} />
+        <Route path="/nexoffice/federated" element={<NexOfficeFederatedEntry />} />
         <Route path="/nexoffice/setup" element={<ProtectedRoute><NexOfficeSetup /></ProtectedRoute>} />
         <Route path="/login/*" element={<Login />} />
         <Route path="/cadastro/*" element={<Signup />} />
