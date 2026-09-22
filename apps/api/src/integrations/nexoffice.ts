@@ -1,4 +1,4 @@
-import type {Express,Request} from 'express';
+import type {Express} from 'express';
 import {randomBytes,timingSafeEqual} from 'node:crypto';
 import {createClerkClient} from '@clerk/backend';
 import {z} from 'zod';
@@ -25,11 +25,11 @@ async function ensureClerkUser(input:z.infer<typeof Input>){
   if(byEmail.data[0])return{clerk,user:byEmail.data[0],created:false};
   const names=splitName(input.userName);
   try{
-    const user=await clerk.users.createUser({emailAddress:[input.userEmail],emailAddressIdentificationStatus:['reserved'],externalId,firstName:names.firstName,lastName:names.lastName,skipPasswordRequirement:true,privateMetadata:{origin:'nexoffice'}});
+    const user=await clerk.users.createUser({emailAddress:[input.userEmail],externalId,firstName:names.firstName,lastName:names.lastName,skipPasswordRequirement:true,privateMetadata:{origin:'nexoffice'}});
     return{clerk,user,created:true};
   }catch(error){
     const password=`Nx!${randomBytes(30).toString('base64url')}a9`;
-    const user=await clerk.users.createUser({emailAddress:[input.userEmail],emailAddressIdentificationStatus:['reserved'],externalId,firstName:names.firstName,lastName:names.lastName,password,privateMetadata:{origin:'nexoffice'}});
+    const user=await clerk.users.createUser({emailAddress:[input.userEmail],externalId,firstName:names.firstName,lastName:names.lastName,password,privateMetadata:{origin:'nexoffice'}});
     return{clerk,user,created:true};
   }
 }
