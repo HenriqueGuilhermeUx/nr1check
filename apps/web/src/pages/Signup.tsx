@@ -2,8 +2,17 @@ import { SignUp, SignedIn, SignedOut, UserButton, useUser } from "@clerk/clerk-r
 import { Link } from "react-router-dom";
 import { LogOut, Shield } from "lucide-react";
 
+function getRedirectUrl() {
+  if (typeof window === "undefined") return "/comecar";
+  const params = new URLSearchParams(window.location.search);
+  const redirect = params.get("redirect");
+  if (!redirect || !redirect.startsWith("/")) return "/comecar";
+  return redirect;
+}
+
 export default function Signup() {
   const { user } = useUser();
+  const redirectUrl = getRedirectUrl();
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
@@ -26,12 +35,8 @@ export default function Signup() {
           </p>
 
           <div className="mt-6 grid gap-3">
-            <Link to="/dashboard" className="btn-primary">
-              Ir para dashboard
-            </Link>
-            <Link to="/comecar" className="btn-secondary">
-              Configurar empresa
-            </Link>
+            <Link to={redirectUrl} className="btn-primary">Continuar</Link>
+            <Link to="/dashboard" className="btn-secondary">Ir para dashboard</Link>
             <Link to="/trocar-conta" className="btn-secondary">
               <LogOut className="h-4 w-4" />
               Sair e criar/entrar com outra conta
@@ -43,17 +48,15 @@ export default function Signup() {
       <SignedOut>
         <div className="mb-4 max-w-md text-center">
           <h1 className="text-xl font-bold text-gray-900">Criar conta NR1Check</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Se já tem conta, use “Entrar”.
-          </p>
+          <p className="mt-1 text-sm text-gray-500">Se já tem conta, use “Entrar”.</p>
         </div>
 
         <SignUp
           routing="path"
           path="/cadastro"
-          signInUrl="/login"
-          fallbackRedirectUrl="/comecar"
-          forceRedirectUrl="/comecar"
+          signInUrl={`/login?redirect=${encodeURIComponent(redirectUrl)}`}
+          fallbackRedirectUrl={redirectUrl}
+          forceRedirectUrl={redirectUrl}
         />
       </SignedOut>
     </div>
