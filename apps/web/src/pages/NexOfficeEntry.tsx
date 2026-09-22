@@ -6,6 +6,7 @@ import {storeNexOfficeEntry} from '../lib/nexofficeEntry';
 
 export default function NexOfficeEntry(){
   const context=useMemo(()=>storeNexOfficeEntry(window.location.search),[]);
+  const setup='/nexoffice/setup';
   return <div className="min-h-screen bg-slate-50 flex items-center justify-center p-5">
     <div className="w-full max-w-3xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
       <div className="bg-gradient-to-br from-emerald-50 to-cyan-50 p-7 md:p-10">
@@ -19,8 +20,8 @@ export default function NexOfficeEntry(){
           <div className="mt-4 flex items-start gap-3 text-sm text-slate-500"><LockKeyhole className="mt-0.5 h-4 w-4 shrink-0"/><p>O NR1Check mantém autenticação e base próprias. No cadastro da empresa você confirma o nome e informa o CNPJ real. Nenhum CNPJ é criado automaticamente.</p></div>
         </div>
         <div className="grid gap-3 md:min-w-56">
-          <SignedOut><Link to="/cadastro" className="btn-primary justify-center">Criar acesso <ArrowRight className="h-4 w-4"/></Link><Link to="/login" className="btn-secondary justify-center">Já tenho conta</Link></SignedOut>
-          <SignedIn><Link to="/comecar" className="btn-primary justify-center">Continuar no NR1Check <ArrowRight className="h-4 w-4"/></Link><Link to="/dashboard" className="btn-secondary justify-center">Ir para dashboard</Link></SignedIn>
+          <SignedOut><Link to={`/cadastro?redirect=${encodeURIComponent(setup)}`} className="btn-primary justify-center">Criar acesso <ArrowRight className="h-4 w-4"/></Link><Link to={`/login?redirect=${encodeURIComponent(setup)}`} className="btn-secondary justify-center">Já tenho conta</Link></SignedOut>
+          <SignedIn><Link to={setup} className="btn-primary justify-center">Continuar no NR1Check <ArrowRight className="h-4 w-4"/></Link><Link to="/dashboard" className="btn-secondary justify-center">Ir para dashboard</Link></SignedIn>
         </div>
       </div>
     </div>
