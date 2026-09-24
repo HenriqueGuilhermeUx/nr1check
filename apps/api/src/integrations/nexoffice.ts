@@ -43,6 +43,7 @@ export function registerNexOfficeIntegration(app:Express){
       }
       const token=await clerk.signInTokens.createSignInToken({userId:user.id,expiresInSeconds:120});
       const url=new URL('/nexoffice/federated',webBase);
+      url.searchParams.set('source','nexoffice');
       url.searchParams.set('ticket',token.token);
       url.searchParams.set('workspaceRef',input.workspaceRef);
       url.searchParams.set('businessName',input.businessName);
