@@ -10,6 +10,7 @@ import { createContext } from "./context";
 import { registerStripeWebhook } from "./webhooks/stripe";
 import { registerWooviWebhook } from "./webhooks/woovi";
 import { registerClerkWebhook } from "./webhooks/clerk";
+import { registerNexOfficeBridge } from "./integrations/nexoffice";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -61,7 +62,7 @@ async function startServer() {
         callback(null, true);
       },
       credentials: true,
-      allowedHeaders: ["content-type", "authorization", "x-trpc-source"],
+      allowedHeaders: ["content-type", "authorization", "x-trpc-source", "x-nexoffice-compliance-key"],
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     }),
   );
@@ -73,6 +74,8 @@ async function startServer() {
 
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
+
+  registerNexOfficeBridge(app);
 
   app.get("/health", (_req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
