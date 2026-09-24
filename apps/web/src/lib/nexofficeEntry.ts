@@ -11,16 +11,18 @@ const MAX_AGE_MS=24*60*60*1000;
 
 function safe(value:string|null,max:number){return String(value||'').trim().slice(0,max)}
 
-export function storeNexOfficeEntry(search:string):NexOfficeEntryContext|null{
-  const params=new URLSearchParams(search);
-  if(params.get('source')!=='nexoffice')return null;
-  const workspaceRef=safe(params.get('workspaceRef'),100);
-  const businessName=safe(params.get('businessName'),180);
-  const sector=safe(params.get('sector'),120);
+export function storeNexOfficeEntryContext(input:{workspaceRef:string;businessName:string;sector?:string|null}):NexOfficeEntryContext|null{
+  const workspaceRef=safe(input.workspaceRef,100),businessName=safe(input.businessName,180),sector=safe(input.sector||'',120);
   if(!workspaceRef||!businessName)return null;
   const context:NexOfficeEntryContext={source:'nexoffice',workspaceRef,businessName,sector,receivedAt:new Date().toISOString()};
   window.localStorage.setItem(KEY,JSON.stringify(context));
   return context;
+}
+
+export function storeNexOfficeEntry(search:string):NexOfficeEntryContext|null{
+  const params=new URLSearchParams(search);
+  if(params.get('source')!=='nexoffice')return null;
+  return storeNexOfficeEntryContext({workspaceRef:params.get('workspaceRef')||'',businessName:params.get('businessName')||'',sector:params.get('sector')||''});
 }
 
 export function readNexOfficeEntry():NexOfficeEntryContext|null{
