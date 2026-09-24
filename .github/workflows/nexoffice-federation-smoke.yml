@@ -1,0 +1,35 @@
+name: NexOffice Federation Smoke
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.env.example'
+      - 'apps/api/src/index.ts'
+      - 'apps/api/src/integrations/nexofficeFederation.ts'
+      - 'apps/web/src/App.tsx'
+      - 'apps/web/src/lib/nexofficeEntry.ts'
+      - 'apps/web/src/pages/NexOfficeFederated.tsx'
+      - 'scripts/smoke-nexoffice-federation.mjs'
+      - '.github/workflows/nexoffice-federation-smoke.yml'
+
+jobs:
+  federation-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+      - name: Typecheck API and web
+        run: |
+          pnpm --filter @nr1check/api typecheck
+          pnpm --filter @nr1check/web typecheck
+      - name: Build federation backend
+        run: pnpm --filter @nr1check/api build
+      - name: Validate one-time federation contract without real Clerk
+        run: node scripts/smoke-nexoffice-federation.mjs
