@@ -38,7 +38,7 @@ export function registerNexOfficeIntegration(app:Express){
       let user=existing.data[0],accountProvisioned=false;
       if(!user){
         const names=firstLast(input.userName);
-        user=await clerk.users.createUser({emailAddress:[email],emailAddressIdentificationStatus:['reserved'],firstName:names.firstName,lastName:names.lastName,skipPasswordRequirement:true,publicMetadata:{source:'nexoffice'}});
+        user=await clerk.users.createUser({emailAddress:[email],firstName:names.firstName,lastName:names.lastName,skipPasswordRequirement:true,publicMetadata:{source:'nexoffice'}});
         accountProvisioned=true;
       }
       const token=await clerk.signInTokens.createSignInToken({userId:user.id,expiresInSeconds:120});
