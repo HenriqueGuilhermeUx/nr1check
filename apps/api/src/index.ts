@@ -11,6 +11,7 @@ import { registerStripeWebhook } from "./webhooks/stripe";
 import { registerWooviWebhook } from "./webhooks/woovi";
 import { registerClerkWebhook } from "./webhooks/clerk";
 import { registerNexOfficeBridge } from "./integrations/nexoffice";
+import { registerNexOfficeFederation } from "./integrations/nexofficeFederation";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -76,6 +77,7 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
   registerNexOfficeBridge(app);
+  registerNexOfficeFederation(app);
 
   app.get("/health", (_req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
