@@ -5,6 +5,7 @@ import { db } from "@nr1check/db";
 import { companies, departments, employees } from "@nr1check/db/schema";
 import { createCompanySchema } from "@nr1check/shared";
 import { protectedProcedure, publicProcedure, router } from "../trpc";
+import { linkCompanyToNexOffice } from "../integrations/nexoffice";
 
 const GOOGLE_REVIEW_EMAIL = "notarizex@gmail.com";
 
@@ -156,6 +157,28 @@ export const companyRouter = router({
         .returning();
 
       return inserted;
+    }),
+
+  linkNexOffice: protectedProcedure
+    .input(z.object({ companyId: z.number().int().positive(), handoffToken: z.string().min(20).max(5000) }))
+    .mutation(async ({ ctx, input }) => {
+      const [company] = await db
+        .select()
+        .from(companies)
+        .where(eq(companies.id, input.companyId))
+        .limit(1);
+      if (!company || company.ownerId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      try {
+        const link = await linkCompanyToNexOffice(input.companyId, ctx.user.id, input.handoffToken);
+        return { success: true, ...link, privacy: "business_reference_only" as const };
+      } catch (error) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: error instanceof Error ? error.message : "Não foi possível vincular o NexOffice.",
+        });
+      }
     }),
 
   // Atualizar dados
