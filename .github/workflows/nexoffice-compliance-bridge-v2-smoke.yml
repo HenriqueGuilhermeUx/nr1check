@@ -1,0 +1,112 @@
+name: NexOffice Compliance Bridge V2 Smoke
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.env.example'
+      - 'apps/api/src/index.ts'
+      - 'apps/api/src/integrations/nexoffice.ts'
+      - 'apps/api/src/integrations/nexofficeFederation.ts'
+      - 'apps/api/src/routers/company.ts'
+      - 'apps/web/src/App.tsx'
+      - 'apps/web/src/lib/nexofficeEntry.ts'
+      - 'apps/web/src/pages/NexOfficeEntry.tsx'
+      - 'apps/web/src/pages/NexOfficeFederated.tsx'
+      - 'apps/web/src/pages/NexOfficeSetup.tsx'
+      - 'packages/db/migrations/0001_nexoffice_compliance_bridge.sql'
+      - 'packages/db/migrations/meta/_journal.json'
+      - 'scripts/smoke-nexoffice-compliance-bridge-v2.mjs'
+      - '.github/workflows/nexoffice-compliance-bridge-v2-smoke.yml'
+
+jobs:
+  bridge-v2:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: nr1check
+          POSTGRES_USER: nr1check
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nr1check -d nr1check"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://nr1check@127.0.0.1:5432/nr1check
+      APP_BASE_URL: https://nr1check.test
+      API_BASE_URL: http://127.0.0.1:3000
+      PORT: '3000'
+      SMOKE_NEXOFFICE_WORKSPACE: 11111111-1111-4111-8111-111111111111
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Prepare scoped bridge secret
+        run: echo "NEXOFFICE_COMPLIANCE_BRIDGE_SECRET=bridge-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-A9x" >> "$GITHUB_ENV"
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+      - name: Apply database migrations
+        run: pnpm db:migrate
+      - name: Seed privacy-boundary fixture
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: '5432'
+          PGDATABASE: nr1check
+          PGUSER: nr1check
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          with u as (
+            insert into users(clerk_user_id,email,name) values('user_bridge_smoke','owner@bridge.test','Bridge Owner') returning id
+          ), c as (
+            insert into companies(owner_id,name,cnpj,type,size,sector,onboarding_completed)
+            select id,'Empresa Bridge Teste','12345678000199','empresa','micro','Consultoria',true from u returning id,owner_id
+          )
+          insert into nexoffice_links(company_id,workspace_ref,linked_by_user_id)
+          select id,'11111111-1111-4111-8111-111111111111'::uuid,owner_id from c;
+
+          insert into employees(company_id,name,cpf,status)
+          select company_id,'Pessoa Sensível','52998224725','ativo' from nexoffice_links where workspace_ref='11111111-1111-4111-8111-111111111111'::uuid;
+
+          insert into assessment_cycles(company_id,name,status,start_date,total_invited,total_responded)
+          select company_id,'Ciclo Ativo','active',now(),1,1 from nexoffice_links where workspace_ref='11111111-1111-4111-8111-111111111111'::uuid;
+
+          insert into complaints(company_id,category,description,protocol_number,protocol_hash,protocol_timestamp,status)
+          select company_id,'outros','SECRET-COMPLAINT-CONTENT','BRIDGE-SECRET-001','hash-secret-001',extract(epoch from now())::bigint*1000,'recebida'
+          from nexoffice_links where workspace_ref='11111111-1111-4111-8111-111111111111'::uuid;
+
+          insert into psychosocial_risk_inventory(company_id,department,factor,description,evidence,probability,severity,risk_level,recommended_action,responsible,deadline,monitoring,action_status)
+          select company_id,'Administrativo','Carga de trabalho','Registro interno A','SECRET-EVIDENCE',3,3,'medio','Ação A','Gestor',now()-interval '2 day','Monitoramento','pendente'
+          from nexoffice_links where workspace_ref='11111111-1111-4111-8111-111111111111'::uuid;
+          insert into psychosocial_risk_inventory(company_id,department,factor,description,evidence,probability,severity,risk_level,recommended_action,responsible,deadline,monitoring,action_status)
+          select company_id,'Administrativo','Organização','Registro interno B','SECRET-PSYCHOSOCIAL-ANSWER',2,2,'baixo','Ação B','Gestor',now()+interval '5 day','Monitoramento','pendente'
+          from nexoffice_links where workspace_ref='11111111-1111-4111-8111-111111111111'::uuid;
+          insert into psychosocial_risk_inventory(company_id,department,factor,description,evidence,probability,severity,risk_level,recommended_action,responsible,deadline,monitoring,action_status)
+          select company_id,'Administrativo','Comunicação','Registro interno C','SECRET-EVIDENCE-CLOSED',2,2,'baixo','Ação C','Gestor',now()-interval '10 day','Monitoramento','concluido'
+          from nexoffice_links where workspace_ref='11111111-1111-4111-8111-111111111111'::uuid;
+          SQL
+      - name: Typecheck and build API
+        run: |
+          pnpm --filter @nr1check/api typecheck
+          pnpm --filter @nr1check/api build
+      - name: Start isolated NR1Check API
+        run: |
+          node apps/api/dist/index.js > /tmp/nr1check-bridge.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:3000/health; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/nr1check-bridge.log
+          exit 1
+      - name: Validate signed handoff, passwordless federation and aggregate-only summary
+        run: node scripts/smoke-nexoffice-compliance-bridge-v2.mjs
+      - name: Logs on failure
+        if: failure()
+        run: cat /tmp/nr1check-bridge.log || true
