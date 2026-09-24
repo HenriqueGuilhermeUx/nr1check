@@ -1,4 +1,5 @@
 import type {Express,Request} from 'express';
+import {timingSafeEqual} from 'node:crypto';
 import {createClerkClient} from '@clerk/backend';
 import {z} from 'zod';
 import {verifyNexOfficeHandoffToken} from './nexoffice';
@@ -20,7 +21,7 @@ type ClerkLike={
 };
 
 function bridgeSecret(){return String(process.env.NEXOFFICE_COMPLIANCE_BRIDGE_SECRET||'').trim()}
-function safeEqual(received:string,expected:string){if(!received||!expected)return false;const a=Buffer.from(received),b=Buffer.from(expected);return a.length===b.length&&crypto.timingSafeEqual(a,b)}
+function safeEqual(received:string,expected:string){if(!received||!expected)return false;const a=Buffer.from(received),b=Buffer.from(expected);return a.length===b.length&&timingSafeEqual(a,b)}
 function firstAppBaseUrl(){for(const raw of String(process.env.APP_BASE_URL||'').split(',')){const value=raw.trim();if(!value)continue;try{const url=new URL(value);if(['https:','http:'].includes(url.protocol))return url.toString().replace(/\/$/,'')}catch{}}return null}
 function nameParts(value:string){const parts=value.trim().split(/\s+/).filter(Boolean);return{firstName:parts.shift()||undefined,lastName:parts.length?parts.join(' '):undefined}}
 
