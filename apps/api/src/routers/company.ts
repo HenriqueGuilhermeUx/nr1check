@@ -5,7 +5,7 @@ import { db } from "@nr1check/db";
 import { companies, departments, employees } from "@nr1check/db/schema";
 import { createCompanySchema } from "@nr1check/shared";
 import { protectedProcedure, publicProcedure, router } from "../trpc";
-import { linkCompanyToNexOffice } from "../integrations/nexoffice";
+import { linkCompanyToNexOffice, verifyNexOfficeHandoffToken } from "../integrations/nexoffice";
 
 const GOOGLE_REVIEW_EMAIL = "notarizex@gmail.com";
 
@@ -92,158 +92,129 @@ async function ensureGoogleReviewCompany(userId: number) {
 }
 
 export const companyRouter = router({
-  // Lista empresas do gestor logado
   my: protectedProcedure.query(async ({ ctx }) => {
     if (isGoogleReviewUser(ctx.user.email)) {
       return ensureGoogleReviewCompany(ctx.user.id);
     }
-
     return db.select().from(companies).where(eq(companies.ownerId, ctx.user.id));
   }),
 
-  // Detalhes de uma empresa
   byId: protectedProcedure
     .input(z.object({ id: z.number() }))
     .query(async ({ ctx, input }) => {
-      const [company] = await db
-        .select()
-        .from(companies)
-        .where(eq(companies.id, input.id))
-        .limit(1);
-
+      const [company] = await db.select().from(companies).where(eq(companies.id, input.id)).limit(1);
       if (!company) throw new TRPCError({ code: "NOT_FOUND" });
-      if (company.ownerId !== ctx.user.id) {
-        throw new TRPCError({ code: "FORBIDDEN" });
-      }
+      if (company.ownerId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
       return company;
     }),
 
-  // Busca pública por CNPJ (pré-onboarding)
   lookupByCnpj: publicProcedure
     .input(z.object({ cnpj: z.string() }))
     .query(async ({ input }) => {
       const cnpj = input.cnpj.replace(/\D/g, "");
-      const [company] = await db
-        .select()
-        .from(companies)
-        .where(eq(companies.cnpj, cnpj))
-        .limit(1);
+      const [company] = await db.select().from(companies).where(eq(companies.cnpj, cnpj)).limit(1);
       return company ?? null;
     }),
 
-  // Criar empresa (onboarding)
+  createFromNexOffice: protectedProcedure
+    .input(z.object({
+      handoffToken: z.string().min(20).max(5000),
+      name: z.string().trim().min(2).max(255),
+      cnpj: z.string().regex(/^\d{14}$/),
+      sector: z.string().trim().max(120).optional(),
+      cnaeCode: z.string().trim().max(10).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      let handoff;
+      try {
+        handoff = verifyNexOfficeHandoffToken(input.handoffToken);
+      } catch (error) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Handoff NexOffice inválido." });
+      }
+
+      try {
+        return await db.transaction(async (tx) => {
+          const [existing] = await tx.select().from(companies).where(eq(companies.cnpj, input.cnpj)).limit(1);
+          if (existing) throw new TRPCError({ code: "CONFLICT", message: "Já existe uma empresa cadastrada com este CNPJ" });
+
+          const linkedRows = await tx.execute(sql`
+            select company_id from nexoffice_links where workspace_ref = ${handoff.workspaceRef}::uuid limit 1
+          `);
+          const alreadyLinked = Array.isArray(linkedRows) ? linkedRows[0] : (linkedRows as any)?.rows?.[0];
+          if (alreadyLinked) throw new TRPCError({ code: "CONFLICT", message: "Este workspace NexOffice já está conectado ao NR1Check." });
+
+          const [inserted] = await tx.insert(companies).values({
+            ownerId: ctx.user.id,
+            name: input.name,
+            cnpj: input.cnpj,
+            sector: input.sector,
+            cnaeCode: input.cnaeCode,
+            type: "empresa",
+            size: "micro",
+          }).returning();
+
+          await tx.execute(sql`
+            insert into nexoffice_links(company_id,workspace_ref,linked_by_user_id,linked_at,updated_at)
+            values(${inserted.id},${handoff.workspaceRef}::uuid,${ctx.user.id},now(),now())
+          `);
+          return { ...inserted, nexoffice: { workspaceRef: handoff.workspaceRef, linked: true, privacy: "business_reference_only" as const } };
+        });
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Não foi possível conectar a empresa ao NexOffice." });
+      }
+    }),
+
   create: protectedProcedure
     .input(createCompanySchema)
     .mutation(async ({ ctx, input }) => {
-      const [existing] = await db
-        .select()
-        .from(companies)
-        .where(eq(companies.cnpj, input.cnpj))
-        .limit(1);
-
-      if (existing) {
-        throw new TRPCError({
-          code: "CONFLICT",
-          message: "Já existe uma empresa cadastrada com este CNPJ",
-        });
-      }
-
-      const [inserted] = await db
-        .insert(companies)
-        .values({
-          ...input,
-          ownerId: ctx.user.id,
-        })
-        .returning();
-
+      const [existing] = await db.select().from(companies).where(eq(companies.cnpj, input.cnpj)).limit(1);
+      if (existing) throw new TRPCError({ code: "CONFLICT", message: "Já existe uma empresa cadastrada com este CNPJ" });
+      const [inserted] = await db.insert(companies).values({ ...input, ownerId: ctx.user.id }).returning();
       return inserted;
     }),
 
   linkNexOffice: protectedProcedure
     .input(z.object({ companyId: z.number().int().positive(), handoffToken: z.string().min(20).max(5000) }))
     .mutation(async ({ ctx, input }) => {
-      const [company] = await db
-        .select()
-        .from(companies)
-        .where(eq(companies.id, input.companyId))
-        .limit(1);
-      if (!company || company.ownerId !== ctx.user.id) {
-        throw new TRPCError({ code: "FORBIDDEN" });
-      }
+      const [company] = await db.select().from(companies).where(eq(companies.id, input.companyId)).limit(1);
+      if (!company || company.ownerId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
       try {
         const link = await linkCompanyToNexOffice(input.companyId, ctx.user.id, input.handoffToken);
         return { success: true, ...link, privacy: "business_reference_only" as const };
       } catch (error) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: error instanceof Error ? error.message : "Não foi possível vincular o NexOffice.",
-        });
+        throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Não foi possível vincular o NexOffice." });
       }
     }),
 
-  // Atualizar dados
   update: protectedProcedure
     .input(createCompanySchema.partial().extend({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const { id, ...data } = input;
-      const [company] = await db
-        .select()
-        .from(companies)
-        .where(eq(companies.id, id))
-        .limit(1);
-
+      const [company] = await db.select().from(companies).where(eq(companies.id, id)).limit(1);
       if (!company) throw new TRPCError({ code: "NOT_FOUND" });
-      if (company.ownerId !== ctx.user.id) {
-        throw new TRPCError({ code: "FORBIDDEN" });
-      }
-
-      const [updated] = await db
-        .update(companies)
-        .set({ ...data, updatedAt: new Date() })
-        .where(eq(companies.id, id))
-        .returning();
+      if (company.ownerId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+      const [updated] = await db.update(companies).set({ ...data, updatedAt: new Date() }).where(eq(companies.id, id)).returning();
       return updated;
     }),
 
-  // Marcar onboarding como completo
   completeOnboarding: protectedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
-      const [company] = await db
-        .select()
-        .from(companies)
-        .where(eq(companies.id, input.id))
-        .limit(1);
-
-      if (!company || company.ownerId !== ctx.user.id) {
-        throw new TRPCError({ code: "FORBIDDEN" });
-      }
-
-      await db
-        .update(companies)
-        .set({ onboardingCompleted: true, updatedAt: new Date() })
-        .where(eq(companies.id, input.id));
-
+      const [company] = await db.select().from(companies).where(eq(companies.id, input.id)).limit(1);
+      if (!company || company.ownerId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+      await db.update(companies).set({ onboardingCompleted: true, updatedAt: new Date() }).where(eq(companies.id, input.id));
       return { success: true };
     }),
 
-  // Departamentos
   departments: protectedProcedure
     .input(z.object({ companyId: z.number() }))
-    .query(async ({ input }) => {
-      return db
-        .select()
-        .from(departments)
-        .where(eq(departments.companyId, input.companyId));
-    }),
+    .query(async ({ input }) => db.select().from(departments).where(eq(departments.companyId, input.companyId))),
 
   createDepartment: protectedProcedure
     .input(z.object({ companyId: z.number(), name: z.string().min(1), description: z.string().optional() }))
     .mutation(async ({ input }) => {
-      const [inserted] = await db
-        .insert(departments)
-        .values(input)
-        .returning();
+      const [inserted] = await db.insert(departments).values(input).returning();
       return inserted;
     }),
 });
