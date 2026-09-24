@@ -7,9 +7,12 @@ on:
       - '.env.example'
       - 'apps/api/src/index.ts'
       - 'apps/api/src/integrations/nexoffice.ts'
+      - 'apps/api/src/integrations/nexofficeFederation.ts'
       - 'apps/api/src/routers/company.ts'
+      - 'apps/web/src/App.tsx'
       - 'apps/web/src/lib/nexofficeEntry.ts'
       - 'apps/web/src/pages/NexOfficeEntry.tsx'
+      - 'apps/web/src/pages/NexOfficeFederated.tsx'
       - 'apps/web/src/pages/NexOfficeSetup.tsx'
       - 'packages/db/migrations/0001_nexoffice_compliance_bridge.sql'
       - 'packages/db/migrations/meta/_journal.json'
@@ -102,7 +105,7 @@ jobs:
           done
           cat /tmp/nr1check-bridge.log
           exit 1
-      - name: Validate signed handoff and aggregate-only summary
+      - name: Validate signed handoff, passwordless federation and aggregate-only summary
         run: node scripts/smoke-nexoffice-compliance-bridge-v2.mjs
       - name: Logs on failure
         if: failure()
