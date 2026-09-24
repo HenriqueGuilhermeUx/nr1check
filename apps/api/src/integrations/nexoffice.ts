@@ -50,11 +50,7 @@ export function verifyNexOfficeHandoffToken(token: string): NexOfficeHandoffPayl
 function bridgeAuthorized(req: Request) {
   const received = String(req.headers["x-nexoffice-compliance-key"] || "");
   let expected = "";
-  try {
-    expected = bridgeSecret();
-  } catch {
-    return false;
-  }
+  try { expected = bridgeSecret(); } catch { return false; }
   return safeEqual(received, expected);
 }
 
@@ -64,9 +60,9 @@ function firstRow<T = Record<string, unknown>>(result: unknown): T | undefined {
   return rows?.[0];
 }
 
-function rowsOf<T = Record<string, unknown>>(result: unknown): T[] {
-  if (Array.isArray(result)) return result as T[];
-  return (result as { rows?: T[] } | null)?.rows || [];
+async function tableExists(tableName:string){
+  const row=firstRow<{table_name:string|null}>(await db.execute(sql`select to_regclass(${`public.${tableName}`})::text as table_name`));
+  return Boolean(row?.table_name);
 }
 
 export async function linkCompanyToNexOffice(companyId: number, userId: number, token: string) {
@@ -93,12 +89,7 @@ export async function linkCompanyToNexOffice(companyId: number, userId: number, 
 function appBaseUrl() {
   const raw = String(process.env.APP_BASE_URL || "").split(",").map((item) => item.trim()).find(Boolean);
   if (!raw) return null;
-  try {
-    const url = new URL(raw);
-    return url.toString().replace(/\/$/, "");
-  } catch {
-    return null;
-  }
+  try { const url = new URL(raw); return url.toString().replace(/\/$/, ""); } catch { return null; }
 }
 
 export async function getNexOfficeComplianceSummary(workspaceRef: string) {
@@ -112,23 +103,19 @@ export async function getNexOfficeComplianceSummary(workspaceRef: string) {
   `));
   if (!company) return null;
 
-  const actions = firstRow<any>(await db.execute(sql`
-    select
-      count(*)::int as total,
-      count(*) filter (
-        where lower(coalesce(action_status, 'pendente')) not in ('concluido','concluida','done','closed','resolvido','resolvida')
-      )::int as open_actions,
-      count(*) filter (
-        where lower(coalesce(action_status, 'pendente')) not in ('concluido','concluida','done','closed','resolvido','resolvida')
-          and deadline is not null and deadline < now()
-      )::int as overdue_actions,
-      min(deadline) filter (
-        where lower(coalesce(action_status, 'pendente')) not in ('concluido','concluida','done','closed','resolvido','resolvida')
-          and deadline is not null
-      ) as next_action_due_at
-    from psychosocial_risk_inventory
-    where company_id = ${company.id}
-  `)) || { total: 0, open_actions: 0, overdue_actions: 0, next_action_due_at: null };
+  const [riskInventoryAvailable,pgrReviewsAvailable]=await Promise.all([tableExists('psychosocial_risk_inventory'),tableExists('pgr_reviews')]);
+  const actions=riskInventoryAvailable
+    ? firstRow<any>(await db.execute(sql`
+        select
+          count(*)::int as total,
+          count(*) filter (where lower(coalesce(action_status, 'pendente')) not in ('concluido','concluida','done','closed','resolvido','resolvida'))::int as open_actions,
+          count(*) filter (where lower(coalesce(action_status, 'pendente')) not in ('concluido','concluida','done','closed','resolvido','resolvida') and deadline is not null and deadline < now())::int as overdue_actions,
+          min(deadline) filter (where lower(coalesce(action_status, 'pendente')) not in ('concluido','concluida','done','closed','resolvido','resolvida') and deadline is not null) as next_action_due_at
+        from psychosocial_risk_inventory
+        where company_id = ${company.id}
+      `))
+    : null;
+  const actionStats=actions||{total:0,open_actions:0,overdue_actions:0,next_action_due_at:null};
 
   const cycles = firstRow<any>(await db.execute(sql`
     select
@@ -139,22 +126,18 @@ export async function getNexOfficeComplianceSummary(workspaceRef: string) {
     where company_id = ${company.id}
   `)) || { total: 0, active: 0, completed: 0 };
 
-  const review = firstRow<any>(await db.execute(sql`
+  const review=pgrReviewsAvailable?firstRow<any>(await db.execute(sql`
     select min(next_review_date) as next_review_date
     from pgr_reviews
     where company_id = ${company.id} and next_review_date >= now()
-  `));
+  `)):null;
 
-  const total = Number(actions.total || 0);
-  const openActions = Number(actions.open_actions || 0);
-  const overdueActions = Number(actions.overdue_actions || 0);
+  const total = Number(actionStats.total || 0);
+  const openActions = Number(actionStats.open_actions || 0);
+  const overdueActions = Number(actionStats.overdue_actions || 0);
   const completionPct = total > 0 ? Math.round(((total - openActions) / total) * 100) : null;
-  const dateCandidates = [actions.next_action_due_at, company.pgr_due_date, review?.next_review_date]
-    .filter(Boolean)
-    .map((value) => new Date(value));
-  const nextDueAt = dateCandidates.length
-    ? new Date(Math.min(...dateCandidates.map((value) => value.getTime()))).toISOString()
-    : null;
+  const dateCandidates = [actionStats.next_action_due_at, company.pgr_due_date, review?.next_review_date].filter(Boolean).map((value) => new Date(value));
+  const nextDueAt = dateCandidates.length ? new Date(Math.min(...dateCandidates.map((value) => value.getTime()))).toISOString() : null;
 
   let diagnosticStatus: "not_started" | "in_progress" | "completed" = "not_started";
   if (Number(cycles.active || 0) > 0) diagnosticStatus = "in_progress";
@@ -186,6 +169,7 @@ export async function getNexOfficeComplianceSummary(workspaceRef: string) {
       includesPsychosocialAnswers: false,
       includesComplaintContent: false,
       includesRawDocuments: false,
+      sourceSchemaCoverage:{riskInventory:riskInventoryAvailable,pgrReviews:pgrReviewsAvailable},
     },
   };
 }
@@ -195,31 +179,18 @@ export function registerNexOfficeBridge(app: Express) {
     try {
       const token = z.object({ token: z.string().min(20).max(5000) }).parse(req.body).token;
       const payload = verifyNexOfficeHandoffToken(token);
-      res.json({
-        source: "nexoffice",
-        workspaceRef: payload.workspaceRef,
-        businessName: payload.businessName,
-        sector: payload.sector,
-        expiresAt: new Date(payload.exp * 1000).toISOString(),
-        privacy: "business_context_only",
-      });
+      res.json({source:"nexoffice",workspaceRef:payload.workspaceRef,businessName:payload.businessName,sector:payload.sector,expiresAt:new Date(payload.exp*1000).toISOString(),privacy:"business_context_only"});
     } catch (error) {
       res.status(401).json({ error: "invalid_handoff", message: error instanceof Error ? error.message : "handoff inválido" });
     }
   });
 
   app.get("/api/internal/nexoffice/compliance-summary", async (req, res) => {
-    if (!bridgeAuthorized(req)) {
-      res.status(401).json({ error: "unauthorized" });
-      return;
-    }
+    if (!bridgeAuthorized(req)) { res.status(401).json({ error: "unauthorized" }); return; }
     try {
       const workspaceRef = z.string().uuid().parse(req.query.workspaceRef);
       const summary = await getNexOfficeComplianceSummary(workspaceRef);
-      if (!summary) {
-        res.status(404).json({ error: "not_linked" });
-        return;
-      }
+      if (!summary) { res.status(404).json({ error: "not_linked" }); return; }
       res.json(summary);
     } catch (error) {
       res.status(400).json({ error: "invalid_request", message: error instanceof Error ? error.message : "requisição inválida" });
@@ -227,19 +198,7 @@ export function registerNexOfficeBridge(app: Express) {
   });
 
   app.get("/api/internal/nexoffice/health", (req, res) => {
-    if (!bridgeAuthorized(req)) {
-      res.status(401).json({ error: "unauthorized" });
-      return;
-    }
-    res.json({
-      status: "ok",
-      service: "nr1check-nexoffice-bridge",
-      handoff: "signed",
-      summary: "aggregate_only",
-      rawEmployeeData: false,
-      rawPsychosocialAnswers: false,
-      complaintContent: false,
-      rawDocuments: false,
-    });
+    if (!bridgeAuthorized(req)) { res.status(401).json({ error: "unauthorized" }); return; }
+    res.json({status:"ok",service:"nr1check-nexoffice-bridge",handoff:"signed",summary:"aggregate_only",rawEmployeeData:false,rawPsychosocialAnswers:false,complaintContent:false,rawDocuments:false});
   });
 }
