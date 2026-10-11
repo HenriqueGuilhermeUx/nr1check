@@ -1,18 +1,19 @@
 {
+  "id": "/app",
   "name": "NR1Check",
   "short_name": "NR1Check",
-  "description": "NR-1 psicossocial para empresas, funcionários e contadores.",
-  "start_url": "/app",
+  "description": "App móvel de acesso à NR-1 psicossocial para funcionários, empresas e RH.",
+  "start_url": "/app?source=pwa",
   "scope": "/",
   "display": "standalone",
-  "orientation": "portrait",
-  "background_color": "#020617",
-  "theme_color": "#0f172a",
+  "orientation": "portrait-primary",
+  "background_color": "#f9fafb",
+  "theme_color": "#111827",
   "lang": "pt-BR",
   "categories": ["business", "productivity", "health"],
   "icons": [
     {
-      "src": "/favicon.svg",
+      "src": "/nr1-app-icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
@@ -20,22 +21,33 @@
   ],
   "shortcuts": [
     {
-      "name": "Responder avaliação",
-      "short_name": "Avaliação",
-      "description": "Responder avaliação psicossocial",
-      "url": "/responder-avaliacao"
+      "name": "Abrir app",
+      "short_name": "App",
+      "description": "Abrir o acesso móvel NR1Check",
+      "url": "/app",
+      "icons": [{"src":"/nr1-app-icon.svg","sizes":"any","type":"image/svg+xml"}]
     },
     {
-      "name": "Cockpit da empresa",
-      "short_name": "Cockpit",
-      "description": "Abrir painel da empresa",
-      "url": "/dashboard"
+      "name": "Sou funcionário",
+      "short_name": "Funcionário",
+      "description": "Entrar com CPF e código da empresa",
+      "url": "/acesso-funcionario",
+      "icons": [{"src":"/nr1-app-icon.svg","sizes":"any","type":"image/svg+xml"}]
     },
     {
-      "name": "Clientes contador",
-      "short_name": "Clientes",
-      "description": "Abrir clientes do contador",
-      "url": "/clientes"
+      "name": "Empresa / RH",
+      "short_name": "Empresa",
+      "description": "Abrir o painel móvel da empresa",
+      "url": "/app/empresa",
+      "icons": [{"src":"/nr1-app-icon.svg","sizes":"any","type":"image/svg+xml"}]
+    },
+    {
+      "name": "Demonstração",
+      "short_name": "Demo",
+      "description": "Explorar o app sem dados reais",
+      "url": "/app/revisao-google",
+      "icons": [{"src":"/nr1-app-icon.svg","sizes":"any","type":"image/svg+xml"}]
     }
-  ]
+  ],
+  "prefer_related_applications": false
 }
