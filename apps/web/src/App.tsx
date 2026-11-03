@@ -31,7 +31,6 @@ import EmployeeLogin from "./pages/EmployeeLogin";
 import EmployeePortal from "./pages/EmployeePortal";
 import NotFound from "./pages/NotFound";
 import AssessmentFindings from "./pages/AssessmentFindings";
-import DebugAuth from "./pages/DebugAuth";
 import Logout from "./pages/Logout";
 import TermsOfUse from "./pages/TermsOfUse";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
@@ -90,7 +89,6 @@ export function App() {
         <Route path="/acesso-funcionario" element={<EmployeeLogin />} />
         <Route path="/responder-avaliacao" element={<PublicPsychosocialResponse />} />
 
-        <Route path="/debug-auth" element={<ProtectedRoute><DebugAuth /></ProtectedRoute>} />
         <Route path="/comecar" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
 
         <Route path="/dashboard" element={<PaidRoute><Dashboard /></PaidRoute>} />
