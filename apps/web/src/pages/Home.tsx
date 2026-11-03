@@ -44,6 +44,7 @@ export default function Home() {
           <nav className="hidden items-center gap-6 text-sm font-medium text-gray-600 md:flex">
             <a href="#produtos" className="hover:text-gray-900">Produtos</a>
             <a href="#contador" className="hover:text-gray-900">Contadores</a>
+            <Link to="/parceiros" className="hover:text-gray-900">Parceiros</Link>
             <a href="#planos" className="hover:text-gray-900">Valores</a>
             <a href="#faq" className="hover:text-gray-900">FAQ</a>
           </nav>
@@ -74,15 +75,15 @@ export default function Home() {
             <div>
               <span className="inline-flex items-center gap-2 rounded-full bg-brand-100 px-3 py-1 text-xs font-semibold text-brand-700">
                 <Zap className="h-3 w-3" />
-                NR-1 psicossocial para empresas, PMEs e contadores
+                Adequação à NR-1 · GRO + riscos psicossociais
               </span>
 
               <h1 className="mt-6 text-4xl font-extrabold tracking-tight text-gray-900 lg:text-6xl">
-                Venda e organize a <span className="text-brand-600">NR-1 psicossocial</span> sem complicar a rotina.
+                Organize a <span className="text-brand-600">adequação à NR-1</span> com evidências e plano de ação.
               </h1>
 
               <p className="mt-6 max-w-2xl text-lg text-gray-600">
-                O NR1Check ajuda empresas e contadores a conduzir avaliação psicossocial, inventário, plano de ação, documentos e evidências em um fluxo simples, com pagamento Pix via Woovi.
+                O NR1Check ajuda empresas a estruturar a gestão dos riscos ocupacionais da NR-1, incluindo fatores psicossociais, com avaliação, inventário, plano de ação, responsáveis, documentos e evidências em um fluxo simples.
               </p>
 
               <div className="mt-8 grid gap-3 sm:grid-cols-3">
@@ -102,14 +103,14 @@ export default function Home() {
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Link to="/precos" className="btn-primary px-6 py-3 text-base">
-                  Assinar com Pix <ArrowRight className="h-4 w-4" />
+                  Começar adequação <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link
                   to="/cadastro"
                   onClick={() => window.localStorage.setItem("nr1check:user-mode", "contador")}
                   className="btn-secondary px-6 py-3 text-base"
                 >
-                  Sou contador/consultor
+                  Sou contador
                 </Link>
               </div>
 
@@ -148,7 +149,7 @@ export default function Home() {
               <div className="mt-6 rounded-2xl border border-yellow-200 bg-yellow-50 p-4">
                 <p className="text-sm font-semibold text-yellow-900">Para contadores</p>
                 <p className="mt-1 text-sm text-yellow-800">
-                  Transforme a organização da NR-1 psicossocial em um serviço recorrente para sua carteira de clientes.
+                  Use a plataforma na sua carteira de clientes ou indique empresas para contratação direta e participe do programa de parceiros.
                 </p>
               </div>
             </div>
@@ -205,9 +206,9 @@ export default function Home() {
           <div className="grid gap-12 lg:grid-cols-[1fr_420px] lg:items-start">
             <div>
               <span className="inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-brand-100">Área para contadores e consultores</span>
-              <h2 className="mt-4 text-3xl font-bold lg:text-4xl">Cadastre clientes, importe trabalhadores e acompanhe a NR-1 por empresa.</h2>
+              <h2 className="mt-4 text-3xl font-bold lg:text-4xl">Seu escritório pode operar a NR-1 dos clientes ou distribuir o NR1Check para eles.</h2>
               <p className="mt-4 text-lg text-gray-300">
-                O contador já tem a folha, os dados cadastrais e a confiança do empresário. O NR1Check transforma isso em uma nova receita recorrente.
+                O contador já tem proximidade com o empresário, dados cadastrais e visão da carteira. Com o NR1Check, pode organizar o acompanhamento multiempresas e também receber comissão ao indicar clientes que contratem diretamente.
               </p>
 
               <div className="mt-8 grid gap-4 md:grid-cols-2">
@@ -228,10 +229,10 @@ export default function Home() {
                   onClick={() => window.localStorage.setItem("nr1check:user-mode", "contador")}
                   className="inline-flex items-center gap-2 rounded-lg bg-white px-5 py-3 text-sm font-semibold text-gray-900 hover:bg-gray-100"
                 >
-                  Assinar plano contador <ArrowRight className="h-4 w-4" />
+                  Usar plano contador <ArrowRight className="h-4 w-4" />
                 </Link>
-                <Link to="/cadastro" className="inline-flex items-center gap-2 rounded-lg border border-white/20 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10">
-                  Criar conta
+                <Link to="/parceiros" className="inline-flex items-center gap-2 rounded-lg border border-white/20 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10">
+                  Ganhar 30% indicando clientes
                 </Link>
               </div>
             </div>
@@ -265,8 +266,8 @@ export default function Home() {
       <section id="planos" className="py-20">
         <div className="mx-auto max-w-7xl px-6">
           <div className="mx-auto mb-12 max-w-3xl text-center">
-            <h2 className="text-3xl font-bold text-gray-900">Valores em destaque</h2>
-            <p className="mt-4 text-lg text-gray-600">Pagamento por Pix via Woovi. Após confirmação, o acesso é liberado automaticamente.</p>
+            <h2 className="text-3xl font-bold text-gray-900">Planos para colocar a adequação em rotina</h2>
+            <p className="mt-4 text-lg text-gray-600">Mensalidade por Pix via Woovi. A cada pagamento confirmado, o período mensal de acesso é renovado automaticamente.</p>
           </div>
           <div className="grid gap-6 md:grid-cols-3">
             {PRICING.map((plan) => (
@@ -330,8 +331,8 @@ export default function Home() {
       <section className="py-20">
         <div className="mx-auto max-w-4xl px-6">
           <div className="card border-0 bg-gradient-to-br from-brand-600 to-brand-700 p-12 text-center text-white">
-            <h2 className="text-3xl font-bold">Comece hoje com Pix e liberação automática.</h2>
-            <p className="mt-3 text-lg text-brand-100">Escolha o plano, pague com Pix e organize a NR-1 psicossocial em poucos passos.</p>
+            <h2 className="text-3xl font-bold">Tire a NR-1 da planilha e coloque a adequação em rotina.</h2>
+            <p className="mt-3 text-lg text-brand-100">Estruture avaliação psicossocial, inventário, plano de ação e evidências em um fluxo contínuo e auditável.</p>
             <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
               <Link to="/precos" className="inline-flex items-center justify-center gap-2 rounded-lg bg-white px-6 py-3 text-base font-semibold text-brand-700 hover:bg-brand-50">
                 Ver planos e assinar
@@ -354,6 +355,7 @@ export default function Home() {
             <p className="mt-1 text-xs">{COMPANY_NAME} · CNPJ {COMPANY_CNPJ}</p>
             <div className="mt-2 flex flex-wrap gap-3 text-xs">
               <Link to="/termos" className="hover:text-gray-900">Termos de Uso</Link>
+              <Link to="/parceiros" className="hover:text-gray-900">Parceiros</Link>
               <Link to="/privacidade" className="hover:text-gray-900">Política de Privacidade</Link>
               <Link to="/disclaimer" className="hover:text-gray-900">Disclaimer</Link>
             </div>
