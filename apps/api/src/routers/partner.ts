@@ -32,7 +32,7 @@ export const partnerRouter = router({
     .input(z.object({ code: z.string().min(1).max(80) }))
     .mutation(({ ctx, input }) => claimPartnerReferral(ctx.user.id, input.code)),
 
-  apply: protectedProcedure
+  join: protectedProcedure
     .input(z.object({
       partnerType: z.enum(["contador", "influencer", "consultor"]),
       displayName: z.string().trim().min(2).max(160),
