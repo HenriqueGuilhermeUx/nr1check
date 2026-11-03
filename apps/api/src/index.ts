@@ -10,6 +10,7 @@ import { createContext } from "./context";
 import { registerStripeWebhook } from "./webhooks/stripe";
 import { registerWooviWebhook } from "./webhooks/woovi";
 import { registerClerkWebhook } from "./webhooks/clerk";
+import { ensureCommercialSchema } from "./commercial/partners";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -40,6 +41,9 @@ function getAllowedOrigins() {
 }
 
 async function startServer() {
+  await ensureCommercialSchema();
+  console.log("🤝 Camada comercial NR1Check pronta");
+
   const app = express();
   const server = createServer(app);
 
