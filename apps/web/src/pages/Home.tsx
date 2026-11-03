@@ -157,6 +157,18 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="border-y border-brand-100 bg-brand-50/60">
+        <div className="mx-auto grid max-w-7xl gap-4 px-6 py-8 md:grid-cols-[1fr_auto] md:items-center">
+          <div>
+            <p className="text-sm font-bold text-brand-800">NR-1 vigente: riscos psicossociais fazem parte do GRO</p>
+            <p className="mt-1 max-w-4xl text-sm text-gray-600">
+              A redação vigente do capítulo 1.5 da NR-1, em vigor desde 26 de maio de 2026, inclui expressamente os fatores de risco psicossociais relacionados ao trabalho no gerenciamento de riscos ocupacionais. O NR1Check organiza avaliação, inventário, plano de ação e evidências para apoiar essa rotina.
+            </p>
+          </div>
+          <a href="https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/nr-1" target="_blank" rel="noreferrer" className="text-sm font-semibold text-brand-700 hover:underline">Consultar NR-1 oficial →</a>
+        </div>
+      </section>
+
       <section id="produtos" className="py-20">
         <div className="mx-auto max-w-7xl px-6">
           <div className="mb-12 max-w-3xl">
