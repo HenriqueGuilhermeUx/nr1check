@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "@nr1check/db";
 import { companies } from "@nr1check/db/schema";
 import { protectedProcedure, router } from "../trpc";
+import { claimPartnerReferral, reservePartnerOffer } from "../commercial/partners";
 
 type PixPlanId = "nr1_solo" | "nr1_pro" | "contador";
 
@@ -40,6 +41,7 @@ type BillingCompany = {
   billingStatus: string | null;
   stripeStatus: string | null;
   stripePlan: string | null;
+  billingPeriodEnd: string | null;
   isActive: boolean;
 };
 
@@ -88,6 +90,9 @@ async function insertPayment(input: {
   qrCodeImage?: string | null;
   paymentLinkUrl?: string | null;
   rawResponse?: unknown;
+  partnerReferralId?: number | null;
+  promoApplied?: boolean;
+  regularAmountCents?: number | null;
 }) {
   const result = await db.execute(sql`
     insert into billing_payments (
@@ -103,7 +108,10 @@ async function insertPayment(input: {
       br_code,
       qr_code_image,
       payment_link_url,
-      raw_response
+      raw_response,
+      partner_referral_id,
+      promo_applied,
+      regular_amount_cents
     )
     values (
       'woovi',
@@ -118,7 +126,10 @@ async function insertPayment(input: {
       ${input.brCode ?? null},
       ${input.qrCodeImage ?? null},
       ${input.paymentLinkUrl ?? null},
-      ${JSON.stringify(input.rawResponse ?? {})}::jsonb
+      ${JSON.stringify(input.rawResponse ?? {})}::jsonb,
+      ${input.partnerReferralId ?? null},
+      ${input.promoApplied ?? false},
+      ${input.regularAmountCents ?? null}
     )
     returning id
   `);
@@ -159,9 +170,20 @@ function isActiveStatus(status?: string | null) {
   return status === "active" || status === "trialing" || status === "paid";
 }
 
+function isPeriodActive(status?: string | null, periodEnd?: string | null) {
+  if (!isActiveStatus(status)) return false;
+  // Legado sem período continua ativo para não bloquear clientes existentes.
+  if (!periodEnd) return true;
+  return new Date(periodEnd).getTime() > Date.now();
+}
+
 export const wooviRouter = router({
   createPixCharge: protectedProcedure
-    .input(z.object({ planId: z.enum(["nr1_solo", "nr1_pro", "contador"]), companyId: z.number().optional() }))
+    .input(z.object({
+      planId: z.enum(["nr1_solo", "nr1_pro", "contador"]),
+      companyId: z.number().optional(),
+      partnerCode: z.string().trim().max(80).optional(),
+    }))
     .mutation(async ({ ctx, input }) => {
       const plan = PIX_PLANS[input.planId];
       if (!plan) throw new TRPCError({ code: "BAD_REQUEST", message: "Plano inválido" });
@@ -178,13 +200,26 @@ export const wooviRouter = router({
         companyName = company.name;
       }
 
+      if (input.partnerCode) {
+        await claimPartnerReferral(ctx.user.id, input.partnerCode);
+      }
+
+      const partnerOffer = await reservePartnerOffer(ctx.user.id, input.planId);
+      const amountCents = partnerOffer?.promoApplied && partnerOffer.promoAmountCents
+        ? partnerOffer.promoAmountCents
+        : plan.amountCents;
+
       const { appId, baseUrl } = getWooviConfig();
       const correlationID = makeCorrelationID({ scope: plan.scope, userId: ctx.user.id, companyId: input.companyId ?? null, planId: input.planId });
-      const comment = plan.scope === "company" ? `${plan.name} - ${companyName ?? "Empresa"}` : `${plan.name} - ${ctx.user.email}`;
+      const comment = partnerOffer?.promoApplied
+        ? `${plan.name} - oferta parceiro - ${companyName ?? ctx.user.email}`
+        : plan.scope === "company"
+          ? `${plan.name} - ${companyName ?? "Empresa"}`
+          : `${plan.name} - ${ctx.user.email}`;
 
       const payload = {
         correlationID,
-        value: plan.amountCents,
+        value: amountCents,
         comment,
         customer: {
           name: ctx.user.name ?? ctx.user.email,
@@ -214,13 +249,16 @@ export const wooviRouter = router({
         companyId: input.companyId ?? null,
         scope: plan.scope,
         planId: input.planId,
-        amountCents: plan.amountCents,
+        amountCents,
         correlationID,
         wooviChargeId: charge.identifier ?? null,
         brCode: charge.brCode ?? null,
         qrCodeImage: charge.qrCodeImage ?? null,
         paymentLinkUrl,
         rawResponse: json,
+        partnerReferralId: partnerOffer?.referralId ?? null,
+        promoApplied: Boolean(partnerOffer?.promoApplied),
+        regularAmountCents: partnerOffer?.regularAmountCents ?? plan.amountCents,
       });
 
       return {
@@ -229,8 +267,10 @@ export const wooviRouter = router({
         scope: plan.scope,
         planId: input.planId,
         planName: plan.name,
-        amountCents: plan.amountCents,
-        amountFormatted: `R$ ${(plan.amountCents / 100).toFixed(2).replace(".", ",")}`,
+        amountCents,
+        amountFormatted: `R$ ${(amountCents / 100).toFixed(2).replace(".", ",")}`,
+        promoApplied: Boolean(partnerOffer?.promoApplied),
+        regularAmountCents: partnerOffer?.regularAmountCents ?? plan.amountCents,
         correlationID,
         status: charge.status ?? "pending",
         brCode: charge.brCode ?? null,
@@ -266,7 +306,7 @@ export const wooviRouter = router({
 
   billingStatus: protectedProcedure.query(async ({ ctx }) => {
     const userResult = await db.execute(sql`
-      select id, email, billing_provider, billing_plan, billing_status
+      select id, email, billing_provider, billing_plan, billing_status, billing_period_end
       from users
       where id = ${ctx.user.id}
       limit 1
@@ -283,7 +323,8 @@ export const wooviRouter = router({
         billing_plan,
         billing_status,
         stripe_status,
-        stripe_plan
+        stripe_plan,
+        billing_period_end
       from companies
       where owner_id = ${ctx.user.id}
       order by id asc
@@ -306,7 +347,8 @@ export const wooviRouter = router({
         billingStatus,
         stripeStatus,
         stripePlan: reviewMode ? "nr1_pro" : (company.stripe_plan as string | null),
-        isActive: reviewMode || isActiveStatus(billingStatus) || isActiveStatus(stripeStatus),
+        billingPeriodEnd: reviewMode ? null : (company.billing_period_end as string | null),
+        isActive: reviewMode || isPeriodActive(billingStatus, company.billing_period_end as string | null) || isActiveStatus(stripeStatus),
       };
     });
 
@@ -315,11 +357,12 @@ export const wooviRouter = router({
         billingProvider: user?.billing_provider as string | null,
         billingPlan: user?.billing_plan as string | null,
         billingStatus: user?.billing_status as string | null,
-        isActive: !reviewMode && user?.billing_plan === "contador" && isActiveStatus(user?.billing_status as string | null),
+        billingPeriodEnd: reviewMode ? null : (user?.billing_period_end as string | null),
+        isActive: !reviewMode && user?.billing_plan === "contador" && isPeriodActive(user?.billing_status as string | null, user?.billing_period_end as string | null),
       },
       companies: mappedCompanies,
       hasActiveCompany: reviewMode || mappedCompanies.some((company) => company.isActive),
-      hasAnyActiveBilling: reviewMode || (accountPlan === "contador" && isActiveStatus(accountStatus)) || mappedCompanies.some((company) => company.isActive),
+      hasAnyActiveBilling: reviewMode || (accountPlan === "contador" && isPeriodActive(accountStatus, user?.billing_period_end as string | null)) || mappedCompanies.some((company) => company.isActive),
     };
   }),
 });
