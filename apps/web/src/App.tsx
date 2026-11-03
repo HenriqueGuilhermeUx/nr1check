@@ -31,13 +31,15 @@ import EmployeeLogin from "./pages/EmployeeLogin";
 import EmployeePortal from "./pages/EmployeePortal";
 import NotFound from "./pages/NotFound";
 import AssessmentFindings from "./pages/AssessmentFindings";
-import DebugAuth from "./pages/DebugAuth";
 import Logout from "./pages/Logout";
 import TermsOfUse from "./pages/TermsOfUse";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import LegalDisclaimer from "./pages/LegalDisclaimer";
 import AccountDeletion from "./pages/AccountDeletion";
 import Support from "./pages/Support";
+import Partners from "./pages/Partners";
+import PartnerTerms from "./pages/PartnerTerms";
+import ReferralCapture from "./components/ReferralCapture";
 import { BillingGate } from "./components/BillingGate";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -61,6 +63,7 @@ export function App() {
   return (
     <BrowserRouter>
       <Toaster position="top-right" />
+      <ReferralCapture />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/app" element={<MobileApp />} />
@@ -73,6 +76,8 @@ export function App() {
         <Route path="/sair" element={<Logout />} />
         <Route path="/trocar-conta" element={<Logout />} />
         <Route path="/precos" element={<Pricing />} />
+        <Route path="/parceiros" element={<Partners />} />
+        <Route path="/parceiros/termos" element={<PartnerTerms />} />
         <Route path="/termos" element={<TermsOfUse />} />
         <Route path="/privacidade" element={<PrivacyPolicy />} />
         <Route path="/disclaimer" element={<LegalDisclaimer />} />
@@ -84,7 +89,6 @@ export function App() {
         <Route path="/acesso-funcionario" element={<EmployeeLogin />} />
         <Route path="/responder-avaliacao" element={<PublicPsychosocialResponse />} />
 
-        <Route path="/debug-auth" element={<ProtectedRoute><DebugAuth /></ProtectedRoute>} />
         <Route path="/comecar" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
 
         <Route path="/dashboard" element={<PaidRoute><Dashboard /></PaidRoute>} />

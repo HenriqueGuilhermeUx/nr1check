@@ -3,13 +3,13 @@ import express from "express";
 import cors from "cors";
 import { createServer } from "http";
 import net from "net";
-import { verifyToken } from "@clerk/backend";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { appRouter } from "./routers";
 import { createContext } from "./context";
 import { registerStripeWebhook } from "./webhooks/stripe";
 import { registerWooviWebhook } from "./webhooks/woovi";
 import { registerClerkWebhook } from "./webhooks/clerk";
+import { ensureCommercialSchema } from "./commercial/partners";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -36,10 +36,17 @@ function getAllowedOrigins() {
     "http://localhost:5173",
     "http://localhost:3000",
     "https://nr1check.netlify.app",
+    "https://mindcompliance.org",
+    "https://www.mindcompliance.org",
+    "capacitor://localhost",
+    "https://localhost",
   ];
 }
 
 async function startServer() {
+  await ensureCommercialSchema();
+  console.log("🤝 Camada comercial NR1Check pronta");
+
   const app = express();
   const server = createServer(app);
 
@@ -58,7 +65,7 @@ async function startServer() {
           return;
         }
 
-        callback(null, true);
+        callback(new Error("Origin não permitida pelo CORS"));
       },
       credentials: true,
       allowedHeaders: ["content-type", "authorization", "x-trpc-source"],
@@ -78,64 +85,6 @@ async function startServer() {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
 
-  app.get("/api/auth-debug", async (req, res) => {
-    const authHeader = req.headers.authorization;
-    const hasAuthHeader = Boolean(authHeader);
-    const startsWithBearer = Boolean(authHeader?.startsWith("Bearer "));
-    const token = startsWithBearer ? authHeader!.slice(7) : "";
-    const secretKey = process.env.CLERK_SECRET_KEY;
-
-    const result: Record<string, unknown> = {
-      status: "auth-debug",
-      receivedOrigin: req.headers.origin ?? null,
-      hasAuthorizationHeader: hasAuthHeader,
-      startsWithBearer,
-      tokenLength: token.length,
-      tokenPreview: token ? `${token.slice(0, 12)}...${token.slice(-8)}` : null,
-      hasClerkSecretKey: Boolean(secretKey),
-      clerkSecretKeyPrefix: secretKey ? `${secretKey.slice(0, 8)}...` : null,
-      appBaseUrlConfigured: process.env.APP_BASE_URL ?? null,
-      nodeEnv: process.env.NODE_ENV ?? null,
-      timestamp: new Date().toISOString(),
-    };
-
-    if (!token) {
-      res.json({
-        ...result,
-        tokenVerified: false,
-        reason: "NO_TOKEN_RECEIVED",
-      });
-      return;
-    }
-
-    if (!secretKey) {
-      res.json({
-        ...result,
-        tokenVerified: false,
-        reason: "MISSING_CLERK_SECRET_KEY",
-      });
-      return;
-    }
-
-    try {
-      const payload = await verifyToken(token, { secretKey });
-      res.json({
-        ...result,
-        tokenVerified: true,
-        clerkUserId: payload.sub,
-        issuer: payload.iss,
-        authorizedParty: payload.azp ?? null,
-      });
-    } catch (error) {
-      res.json({
-        ...result,
-        tokenVerified: false,
-        reason: "VERIFY_TOKEN_FAILED",
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-  });
-
   app.use(
     "/api/trpc",
     createExpressMiddleware({
@@ -150,7 +99,6 @@ async function startServer() {
   server.listen(port, () => {
     console.log(`🚀 NR1Check API rodando em http://localhost:${port}`);
     console.log(`📡 tRPC endpoint: http://localhost:${port}/api/trpc`);
-    console.log(`🔐 Auth debug: http://localhost:${port}/api/auth-debug`);
     console.log(`💠 Woovi webhook: http://localhost:${port}/webhooks/woovi`);
   });
 }

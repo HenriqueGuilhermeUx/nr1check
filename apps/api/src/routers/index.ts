@@ -11,6 +11,7 @@ import { complianceRouter } from "./compliance";
 import { stripeRouter } from "./stripe";
 import { wooviRouter } from "./woovi";
 import { notificationRouter } from "./notification";
+import { partnerRouter } from "./partner";
 
 export const appRouter = router({
   auth: authRouter,
@@ -25,6 +26,7 @@ export const appRouter = router({
   stripe: stripeRouter,
   woovi: wooviRouter,
   notification: notificationRouter,
+  partner: partnerRouter,
 });
 
 export type AppRouter = typeof appRouter;
