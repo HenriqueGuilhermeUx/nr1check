@@ -47,6 +47,7 @@ export const partnerRouter = router({
       acceptedTerms: true,
     })),
 
+  access: protectedProcedure.query(({ ctx }) => ({ isAdmin: ctx.user.role === "admin" })),
   me: protectedProcedure.query(({ ctx }) => partnerMe(ctx.user.id)),
   dashboard: protectedProcedure.query(({ ctx }) => partnerDashboard(ctx.user.id)),
 
