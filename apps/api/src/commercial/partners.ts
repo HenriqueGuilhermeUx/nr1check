@@ -11,8 +11,12 @@ function rowsOf(result: any) {
   return Array.isArray(result) ? result : result?.rows ?? [];
 }
 
-export async function ensureCommercialSchema() {
-  await db.execute(sql.raw(`
+let commercialSchemaPromise: Promise<void> | null = null;
+
+export function ensureCommercialSchema() {
+  if (!commercialSchemaPromise) {
+    commercialSchemaPromise = (async () => {
+      await db.execute(sql.raw(`
     alter table users add column if not exists billing_period_end timestamptz;
     alter table companies add column if not exists billing_period_end timestamptz;
 
@@ -145,6 +149,16 @@ export async function ensureCommercialSchema() {
       active = excluded.active,
       updated_at = now();
   `));
+    })().catch((error) => {
+      commercialSchemaPromise = null;
+      throw error;
+    });
+  }
+  return commercialSchemaPromise;
+}
+
+async function ready() {
+  await ensureCommercialSchema();
 }
 
 export function normalizePartnerCode(value: string) {
@@ -188,6 +202,7 @@ async function findActiveCode(code: string) {
 }
 
 export async function publicPartnerOffer(code: string) {
+  await ready();
   const row = await findActiveCode(code);
   if (!row) return null;
   const campaignActive =
@@ -215,6 +230,7 @@ export async function publicPartnerOffer(code: string) {
 }
 
 export async function trackPartnerClick(code: string, visitorId: string, referrer?: string | null) {
+  await ready();
   const row = await findActiveCode(code);
   if (!row) return { tracked: false };
   await db.execute(sql`
@@ -226,6 +242,7 @@ export async function trackPartnerClick(code: string, visitorId: string, referre
 }
 
 export async function claimPartnerReferral(userId: number, code: string) {
+  await ready();
   const row = await findActiveCode(code);
   if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Código de parceiro inválido ou inativo" });
   if (Number(row.partner_user_id) === userId) {
@@ -249,6 +266,7 @@ export async function claimPartnerReferral(userId: number, code: string) {
 }
 
 export async function reservePartnerOffer(userId: number, planId: string) {
+  await ready();
   const referralResult = await db.execute(sql`
     select
       r.*,
@@ -329,6 +347,7 @@ export async function reservePartnerOffer(userId: number, planId: string) {
 }
 
 export async function recordPartnerCommission(paymentId: number) {
+  await ready();
   const result = await db.execute(sql`
     select
       bp.id as payment_id,
@@ -399,6 +418,7 @@ export async function recordPartnerCommission(paymentId: number) {
 }
 
 export async function extendBillingPeriod(input: { scope: "company" | "accountant"; userId: number; companyId?: number | null; paymentId: number; planId: string }) {
+  await ready();
   const periodStart = new Date();
   let result: any;
   if (input.scope === "company" && input.companyId) {
@@ -443,6 +463,7 @@ export async function applyForPartner(userId: number, input: {
   audienceSize?: number | null;
   acceptedTerms: true;
 }) {
+  await ready();
   const result = await db.execute(sql`
     insert into partner_profiles (
       user_id, partner_type, display_name, social_handle, social_url, audience_size,
@@ -468,6 +489,7 @@ export async function applyForPartner(userId: number, input: {
 }
 
 export async function partnerMe(userId: number) {
+  await ready();
   const result = await db.execute(sql`
     select
       p.id, p.partner_type, p.display_name, p.social_handle, p.social_url, p.audience_size,
@@ -484,6 +506,7 @@ export async function partnerMe(userId: number) {
 }
 
 export async function updatePartnerPayout(userId: number, payoutPixKey: string) {
+  await ready();
   const result = await db.execute(sql`
     update partner_profiles
     set payout_pix_key = ${payoutPixKey.trim().slice(0, 255)}, updated_at = now()
@@ -495,6 +518,7 @@ export async function updatePartnerPayout(userId: number, payoutPixKey: string) 
 }
 
 export async function partnerDashboard(userId: number) {
+  await ready();
   const me = await partnerMe(userId);
   if (!me) throw new TRPCError({ code: "NOT_FOUND", message: "Perfil de parceiro não encontrado" });
   const partnerId = Number(me.id);
@@ -527,6 +551,7 @@ export async function partnerDashboard(userId: number) {
 }
 
 export async function listPartnerApplications() {
+  await ready();
   const result = await db.execute(sql`
     select p.*, u.email
     from partner_profiles p
@@ -543,6 +568,7 @@ function slugCode(value: string) {
 }
 
 export async function approvePartner(partnerId: number, adminUserId: number) {
+  await ready();
   const result = await db.execute(sql`
     update partner_profiles
     set status = 'active', approved_by = ${adminUserId}, approved_at = now(), updated_at = now()
@@ -574,12 +600,14 @@ export async function approvePartner(partnerId: number, adminUserId: number) {
 }
 
 export async function pausePartner(partnerId: number) {
+  await ready();
   await db.execute(sql`update partner_profiles set status = 'paused', updated_at = now() where id = ${partnerId}`);
   await db.execute(sql`update partner_codes set active = false where partner_id = ${partnerId}`);
   return { success: true };
 }
 
 export async function listAdminCommissions() {
+  await ready();
   const result = await db.execute(sql`
     select
       c.id, c.partner_id, c.payment_value_cents, c.commission_percent,
@@ -595,6 +623,7 @@ export async function listAdminCommissions() {
 }
 
 export async function markCommissionPaid(commissionId: number) {
+  await ready();
   const result = await db.execute(sql`
     update partner_commissions
     set status = 'paid', paid_at = now()
