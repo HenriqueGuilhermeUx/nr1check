@@ -338,17 +338,22 @@ export const wooviRouter = router({
     const mappedCompanies: BillingCompany[] = (companyRows ?? []).map((company: any) => {
       const billingStatus = reviewMode ? "active" : (company.billing_status as string | null);
       const stripeStatus = reviewMode ? "active" : (company.stripe_status as string | null);
+      const billingProvider = reviewMode ? "google_review" : (company.billing_provider as string | null);
+      const isActive = reviewMode
+        || (billingProvider === "woovi"
+          ? isPeriodActive(billingStatus, company.billing_period_end as string | null)
+          : isActiveStatus(billingStatus) || isActiveStatus(stripeStatus));
 
       return {
         id: Number(company.id),
         name: company.name as string,
-        billingProvider: reviewMode ? "google_review" : (company.billing_provider as string | null),
+        billingProvider,
         billingPlan: reviewMode ? "nr1_pro" : (company.billing_plan as string | null),
         billingStatus,
         stripeStatus,
         stripePlan: reviewMode ? "nr1_pro" : (company.stripe_plan as string | null),
         billingPeriodEnd: reviewMode ? null : (company.billing_period_end as string | null),
-        isActive: reviewMode || isPeriodActive(billingStatus, company.billing_period_end as string | null) || isActiveStatus(stripeStatus),
+        isActive,
       };
     });
 
