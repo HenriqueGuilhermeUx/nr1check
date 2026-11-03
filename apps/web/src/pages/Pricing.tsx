@@ -58,6 +58,11 @@ const PLANS = [
 
 export default function Pricing() {
   const { isSignedIn } = useUser();
+  const partnerCode = window.localStorage.getItem("nr1check_partner_ref") || "";
+  const { data: partnerOffer } = trpc.partner.offer.useQuery(
+    { code: partnerCode },
+    { enabled: Boolean(partnerCode), retry: false },
+  );
   const navigate = useNavigate();
   const utils = trpc.useUtils();
 
@@ -80,7 +85,7 @@ export default function Pricing() {
 
     if (planId === "contador") {
       window.localStorage.setItem("nr1check:user-mode", "contador");
-      createPixCharge.mutate({ planId });
+      createPixCharge.mutate({ planId, partnerCode: partnerCode || undefined });
       return;
     }
 
@@ -95,6 +100,7 @@ export default function Pricing() {
     createPixCharge.mutate({
       companyId: companies[0].id,
       planId,
+      partnerCode: partnerCode || undefined,
     });
   };
 
@@ -115,11 +121,11 @@ export default function Pricing() {
       <div className="mx-auto max-w-6xl px-6 py-16">
         <div className="text-center mb-12">
           <span className="inline-flex rounded-full bg-brand-100 px-3 py-1 text-xs font-semibold text-brand-700">
-            Cobrança Pix automática via Woovi
+            Mensalidade Pix via Woovi
           </span>
           <h1 className="mt-4 text-4xl font-bold text-gray-900">Planos simples</h1>
           <p className="mt-3 text-lg text-gray-600">
-            Escolha o plano, pague por Pix e o sistema libera automaticamente após confirmação.
+            Escolha o plano, pague por Pix e o acesso do mês é liberado automaticamente após a confirmação. A renovação acontece a cada novo pagamento mensal.
           </p>
         </div>
 
@@ -138,9 +144,23 @@ export default function Pricing() {
               <h3 className="text-xl font-bold text-gray-900">{p.name}</h3>
               <p className="text-sm text-gray-500 mt-1">{p.description}</p>
 
-              <div className="mt-6 flex items-baseline gap-1">
-                <span className="text-4xl font-extrabold text-gray-900">{p.price}</span>
-                <span className="text-gray-500">/{p.period}</span>
+              <div className="mt-6">
+                {p.id === "nr1_solo" && partnerOffer?.campaign?.active ? (
+                  <>
+                    <p className="text-sm font-semibold text-emerald-700">Oferta exclusiva de parceiro</p>
+                    <div className="mt-1 flex items-baseline gap-2">
+                      <span className="text-lg text-gray-400 line-through">R$ 79</span>
+                      <span className="text-4xl font-extrabold text-gray-900">R$ 49,90</span>
+                      <span className="text-gray-500">/mês</span>
+                    </div>
+                    <p className="mt-2 text-xs text-emerald-700">Por 12 meses · primeiros {partnerOffer.campaign.maxRedemptions} clientes elegíveis · restam {partnerOffer.campaign.remaining} reservas.</p>
+                  </>
+                ) : (
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-4xl font-extrabold text-gray-900">{p.price}</span>
+                    <span className="text-gray-500">/{p.period}</span>
+                  </div>
+                )}
               </div>
 
               <ul className="mt-6 space-y-3">
@@ -157,7 +177,7 @@ export default function Pricing() {
                 disabled={createPixCharge.isPending}
                 className={`mt-6 w-full ${p.highlighted ? "btn-primary" : "btn-secondary"}`}
               >
-                {createPixCharge.isPending ? "Gerando Pix..." : "Pagar com Pix"}
+                {createPixCharge.isPending ? "Gerando Pix..." : p.id === "nr1_solo" && partnerOffer?.campaign?.active ? "Assinar oferta de parceiro" : "Pagar mensalidade com Pix"}
               </button>
             </div>
           ))}
