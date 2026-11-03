@@ -53,7 +53,7 @@ export default function Partners() {
     retry: false,
   });
 
-  const apply = trpc.partner.apply.useMutation({
+  const apply = trpc.partner.join.useMutation({
     onSuccess: async () => {
       await utils.partner.me.invalidate();
       toast.success("Solicitação enviada. Vamos liberar seu código após a aprovação.");
