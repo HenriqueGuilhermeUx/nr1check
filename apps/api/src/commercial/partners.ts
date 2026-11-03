@@ -125,6 +125,26 @@ export function ensureCommercialSchema() {
     alter table if exists billing_payments add column if not exists access_period_end timestamptz;
     create index if not exists billing_payments_partner_referral_idx on billing_payments(partner_referral_id);
 
+
+    alter table partner_campaigns enable row level security;
+    alter table partner_profiles enable row level security;
+    alter table partner_codes enable row level security;
+    alter table partner_clicks enable row level security;
+    alter table partner_referrals enable row level security;
+    alter table partner_commissions enable row level security;
+
+    revoke all on table partner_campaigns from anon, authenticated;
+    revoke all on table partner_profiles from anon, authenticated;
+    revoke all on table partner_codes from anon, authenticated;
+    revoke all on table partner_clicks from anon, authenticated;
+    revoke all on table partner_referrals from anon, authenticated;
+    revoke all on table partner_commissions from anon, authenticated;
+    revoke all on sequence partner_profiles_id_seq from anon, authenticated;
+    revoke all on sequence partner_codes_id_seq from anon, authenticated;
+    revoke all on sequence partner_clicks_id_seq from anon, authenticated;
+    revoke all on sequence partner_referrals_id_seq from anon, authenticated;
+    revoke all on sequence partner_commissions_id_seq from anon, authenticated;
+
     insert into partner_campaigns (
       key, name, plan_id, promo_amount_cents, regular_amount_cents,
       promo_months, max_redemptions, active
