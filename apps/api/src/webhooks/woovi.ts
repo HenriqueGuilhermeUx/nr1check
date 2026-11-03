@@ -1,7 +1,7 @@
 import express, { type Express } from "express";
-import { eq, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { db } from "@nr1check/db";
-import { companies } from "@nr1check/db/schema";
+import { extendBillingPeriod, recordPartnerCommission } from "../commercial/partners";
 
 type WooviWebhookPayload = {
   event?: string;
@@ -70,6 +70,18 @@ function isPaidEvent(event: string) {
     "PIX_AUTOMATIC_COBR_COMPLETED",
     "PIX_AUTOMATIC_COBR_APPROVED",
   ].includes(event);
+}
+
+function readPaidValue(payload: WooviWebhookPayload) {
+  const values = [
+    payload.charge?.value,
+    payload.data?.charge?.value,
+    payload.data?.transaction?.value,
+    payload.data?.transaction?.charge?.value,
+    (payload.transaction as any)?.value,
+    (payload.transaction?.charge as any)?.value,
+  ].filter((value) => typeof value === "number") as number[];
+  return values[0] ?? null;
 }
 
 function isExpiredOrRejectedEvent(event: string) {
@@ -155,39 +167,6 @@ async function getPaymentByCandidates(candidates: string[]) {
   return rows?.[0] ?? null;
 }
 
-async function activateCompany(companyId: number, planId: string) {
-  await db
-    .update(companies)
-    .set({
-      stripeStatus: "active",
-      stripePlan: (planId as any) === "contador" ? "corporate" : (planId as any),
-      updatedAt: new Date(),
-    })
-    .where(eq(companies.id, companyId));
-
-  await db.execute(sql`
-    update companies
-    set
-      billing_provider = 'woovi',
-      billing_plan = ${planId},
-      billing_status = 'active',
-      updated_at = now()
-    where id = ${companyId}
-  `);
-}
-
-async function activateAccountant(userId: number, planId: string) {
-  await db.execute(sql`
-    update users
-    set
-      billing_provider = 'woovi',
-      billing_plan = ${planId},
-      billing_status = 'active',
-      updated_at = now()
-    where id = ${userId}
-  `);
-}
-
 export function registerWooviWebhook(app: Express) {
   app.post("/webhooks/woovi", express.json({ limit: "5mb" }), async (req, res) => {
     const webhookToken = process.env.WOOVI_WEBHOOK_TOKEN;
@@ -230,6 +209,20 @@ export function registerWooviWebhook(app: Express) {
       }
 
       if (isPaidEvent(event)) {
+        const paidValue = readPaidValue(payload);
+        if (paidValue != null && paidValue !== Number(payment.amount_cents)) {
+          await markWebhookIgnored(webhookEventId, `payment_value_mismatch:${paidValue}!=${payment.amount_cents}`);
+          return res.json({
+            ok: true,
+            ignored: true,
+            reason: "payment_value_mismatch",
+            expected: Number(payment.amount_cents),
+            received: paidValue,
+          });
+        }
+
+        const alreadyPaid = payment.status === "paid" || payment.status === "completed" || payment.status === "active";
+
         await db.execute(sql`
           update billing_payments
           set
@@ -240,12 +233,15 @@ export function registerWooviWebhook(app: Express) {
           where id = ${Number(payment.id)}
         `);
 
-        if (payment.scope === "company" && payment.company_id) {
-          await activateCompany(Number(payment.company_id), payment.plan_id as string);
-        }
-
-        if (payment.scope === "accountant") {
-          await activateAccountant(Number(payment.user_id), payment.plan_id as string);
+        if (!alreadyPaid) {
+          await extendBillingPeriod({
+            scope: payment.scope as "company" | "accountant",
+            userId: Number(payment.user_id),
+            companyId: payment.company_id ? Number(payment.company_id) : null,
+            paymentId: Number(payment.id),
+            planId: payment.plan_id as string,
+          });
+          await recordPartnerCommission(Number(payment.id));
         }
       }
 
