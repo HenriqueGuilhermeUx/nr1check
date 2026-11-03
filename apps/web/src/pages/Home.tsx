@@ -37,7 +37,7 @@ export default function Home() {
             </div>
             <div>
               <span className="block text-xl font-bold leading-tight text-gray-900">NR1Check</span>
-              <span className="hidden text-[11px] text-gray-500 sm:block">{COMPANY_NAME}</span>
+              <span className="hidden text-[11px] text-gray-500 sm:block">MindCompliance · {COMPANY_NAME}</span>
             </div>
           </Link>
 
@@ -363,7 +363,7 @@ export default function Home() {
       <footer className="border-t border-gray-200 py-10">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 text-sm text-gray-500 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="font-medium text-gray-700">NR1Check · {COMPANY_NAME}</p>
+            <p className="font-medium text-gray-700">MindCompliance · NR1Check</p>
             <p className="mt-1 text-xs">{COMPANY_NAME} · CNPJ {COMPANY_CNPJ}</p>
             <div className="mt-2 flex flex-wrap gap-3 text-xs">
               <Link to="/termos" className="hover:text-gray-900">Termos de Uso</Link>
