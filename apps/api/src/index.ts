@@ -44,9 +44,6 @@ function getAllowedOrigins() {
 }
 
 async function startServer() {
-  await ensureCommercialSchema();
-  console.log("🤝 Camada comercial NR1Check pronta");
-
   const app = express();
   const server = createServer(app);
 
@@ -100,6 +97,12 @@ async function startServer() {
     console.log(`🚀 NR1Check API rodando em http://localhost:${port}`);
     console.log(`📡 tRPC endpoint: http://localhost:${port}/api/trpc`);
     console.log(`💠 Woovi webhook: http://localhost:${port}/webhooks/woovi`);
+
+    // Não bloqueia o health check nem o zero-downtime deploy.
+    // Endpoints comerciais aguardam a mesma Promise antes de acessar suas tabelas.
+    void ensureCommercialSchema()
+      .then(() => console.log("🤝 Camada comercial NR1Check pronta"))
+      .catch((error) => console.error("⚠️ Falha ao preparar camada comercial NR1Check:", error));
   });
 }
 
