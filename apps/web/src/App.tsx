@@ -38,6 +38,9 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import LegalDisclaimer from "./pages/LegalDisclaimer";
 import AccountDeletion from "./pages/AccountDeletion";
 import Support from "./pages/Support";
+import Partners from "./pages/Partners";
+import PartnerTerms from "./pages/PartnerTerms";
+import ReferralCapture from "./components/ReferralCapture";
 import { BillingGate } from "./components/BillingGate";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -61,6 +64,7 @@ export function App() {
   return (
     <BrowserRouter>
       <Toaster position="top-right" />
+      <ReferralCapture />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/app" element={<MobileApp />} />
@@ -73,6 +77,8 @@ export function App() {
         <Route path="/sair" element={<Logout />} />
         <Route path="/trocar-conta" element={<Logout />} />
         <Route path="/precos" element={<Pricing />} />
+        <Route path="/parceiros" element={<Partners />} />
+        <Route path="/parceiros/termos" element={<PartnerTerms />} />
         <Route path="/termos" element={<TermsOfUse />} />
         <Route path="/privacidade" element={<PrivacyPolicy />} />
         <Route path="/disclaimer" element={<LegalDisclaimer />} />
