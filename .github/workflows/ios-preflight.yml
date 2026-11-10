@@ -1,0 +1,85 @@
+name: NR1Check exploratory iOS simulator preflight (unsigned)
+
+on:
+  pull_request:
+    paths:
+      - 'apps/web/**'
+      - 'packages/**'
+      - 'pnpm-workspace.yaml'
+      - 'package.json'
+      - '.github/workflows/ios-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  candidate-ios:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Set up pnpm
+        run: corepack enable && corepack prepare pnpm@9.12.0 --activate
+      - name: Install monorepo
+        run: pnpm install --no-frozen-lockfile
+      - name: Build existing web application
+        run: pnpm --filter @nr1check/web build
+      - name: Install temporary Capacitor iOS tooling in CI
+        run: pnpm --filter @nr1check/web add -D @capacitor/core@7.4.3 @capacitor/cli@7.4.3 @capacitor/ios@7.4.3
+      - name: Generate exploratory iOS project
+        working-directory: apps/web
+        run: pnpm exec cap add ios
+      - name: Install iOS CocoaPods
+        working-directory: apps/web/ios/App
+        run: pod install
+      - name: Compile unsigned iOS simulator app
+        working-directory: apps/web
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild -workspace ios/App/App.xcworkspace -scheme App -sdk iphonesimulator -configuration Debug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO -derivedDataPath "$RUNNER_TEMP/nr1-ios-derived" build 2>&1 | tee ios-build.log
+      - name: Launch exploratory candidate on iPhone simulator
+        timeout-minutes: 12
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_PATH="$(find "$RUNNER_TEMP/nr1-ios-derived/Build/Products/Debug-iphonesimulator" -maxdepth 1 -type d -name '*.app' | head -n 1)"
+          test -n "$APP_PATH"
+          BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$APP_PATH/Info.plist")"
+          DEVICE_ID="$(xcrun simctl list devices available -j | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{let d=Object.values(JSON.parse(s).devices).flat().find(x=>x.isAvailable&&x.name.startsWith("iPhone"));if(!d)process.exit(1);console.log(d.udid)})')"
+          xcrun simctl boot "$DEVICE_ID" || true
+          xcrun simctl bootstatus "$DEVICE_ID" -b
+          xcrun simctl install "$DEVICE_ID" "$APP_PATH"
+          xcrun simctl launch "$DEVICE_ID" "$BUNDLE_ID"
+          sleep 5
+          xcrun simctl io "$DEVICE_ID" screenshot "$RUNNER_TEMP/nr1check-candidate-smoke.png"
+          xcrun simctl terminate "$DEVICE_ID" "$BUNDLE_ID"
+          xcrun simctl shutdown "$DEVICE_ID" || true
+      - name: Archive candidate screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nr1check-candidate-launch
+          path: ${{ runner.temp }}/nr1check-candidate-smoke.png
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nr1check-ios-preflight-log
+          path: apps/web/ios-build.log
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Upload unsigned simulator .app
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nr1check-ios-candidate
+          path: ${{ runner.temp }}/nr1-ios-derived/Build/Products/Debug-iphonesimulator/*.app
+          if-no-files-found: error
+          retention-days: 7
