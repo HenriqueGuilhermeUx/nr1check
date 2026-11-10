@@ -33,12 +33,15 @@ jobs:
       - name: Generate exploratory iOS project
         working-directory: apps/web
         run: pnpm exec cap add ios
+      - name: Install iOS CocoaPods
+        working-directory: apps/web/ios/App
+        run: pod install
       - name: Compile unsigned iOS simulator app
         working-directory: apps/web
         shell: bash
         run: |
           set -euo pipefail
-          xcodebuild -project ios/App/App.xcodeproj -scheme App -sdk iphonesimulator -configuration Debug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO -derivedDataPath "$RUNNER_TEMP/nr1-ios-derived" build 2>&1 | tee ios-build.log
+          xcodebuild -workspace ios/App/App.xcworkspace -scheme App -sdk iphonesimulator -configuration Debug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO -derivedDataPath "$RUNNER_TEMP/nr1-ios-derived" build 2>&1 | tee ios-build.log
       - name: Upload diagnostics
         if: always()
         uses: actions/upload-artifact@v4
