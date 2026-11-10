@@ -1,0 +1,57 @@
+name: NR1Check exploratory iOS simulator preflight (unsigned)
+
+on:
+  pull_request:
+    paths:
+      - 'apps/web/**'
+      - 'packages/**'
+      - 'pnpm-workspace.yaml'
+      - 'package.json'
+      - '.github/workflows/ios-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  candidate-ios:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Set up pnpm
+        run: corepack enable && corepack prepare pnpm@9.12.0 --activate
+      - name: Install monorepo
+        run: pnpm install --no-frozen-lockfile
+      - name: Build existing web application
+        run: pnpm --filter @nr1check/web build
+      - name: Install temporary Capacitor iOS tooling in CI
+        run: pnpm --filter @nr1check/web add -D @capacitor/core@7.4.3 @capacitor/cli@7.4.3 @capacitor/ios@7.4.3
+      - name: Generate exploratory iOS project
+        working-directory: apps/web
+        run: pnpm exec cap add ios
+      - name: Compile unsigned iOS simulator app
+        working-directory: apps/web
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -sdk iphonesimulator -configuration Debug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO -derivedDataPath "$RUNNER_TEMP/nr1-ios-derived" build 2>&1 | tee ios-build.log
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nr1check-ios-preflight-log
+          path: apps/web/ios-build.log
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Upload unsigned simulator .app
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nr1check-ios-candidate
+          path: ${{ runner.temp }}/nr1-ios-derived/Build/Products/Debug-iphonesimulator/*.app
+          if-no-files-found: error
+          retention-days: 7
