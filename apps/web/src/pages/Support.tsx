@@ -4,7 +4,7 @@ import { HelpCircle, Mail, MessageCircle, Shield } from "lucide-react";
 
 const COMPANY_NAME = "Alternative Ventures Ltda";
 const COMPANY_CNPJ = "61.920.356/0001-38";
-const CONTACT_EMAIL = "henriquecampos66@gmail.com";
+const CONTACT_EMAIL = "corporate@alternativeventures.com.br";
 const CONTACT_WHATSAPP = "5511947984328";
 
 export default function Support() {
